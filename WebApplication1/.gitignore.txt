@@ -1,0 +1,41 @@
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# User-specific files
+*.userprefs
+
+# Visual Studio cache files
+*.cache
+*.dll
+*.exe
+*.pdb
+
+# NuGet Packages
+*.nupkg
+[Pp]ackages/
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Sensitive files
+appsettings.Production.json
+appsettings.Staging.json
+*.secrets.json
