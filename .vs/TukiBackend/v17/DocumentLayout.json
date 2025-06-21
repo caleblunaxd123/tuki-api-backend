@@ -76,7 +76,7 @@
               "RelativeDocumentMoniker": "WebApplication1\\appsettings.Production.json",
               "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\appsettings.Production.json",
               "RelativeToolTip": "WebApplication1\\appsettings.Production.json",
-              "ViewState": "AgIAAAEAAAAAAAAAAAAIwB4AAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAEAAAAAAAAAAAAIwBIAAAAkAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2025-06-21T16:21:18.895Z",
               "EditorCaption": ""
@@ -84,15 +84,14 @@
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "WebApplication1",
+              "Title": "WebApplication1.csproj",
               "DocumentMoniker": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\WebApplication1.csproj",
               "RelativeDocumentMoniker": "WebApplication1\\WebApplication1.csproj",
               "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\WebApplication1.csproj",
               "RelativeToolTip": "WebApplication1\\WebApplication1.csproj",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAABPAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-06-21T16:20:24.466Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-21T16:20:24.466Z"
             },
             {
               "$type": "Document",
@@ -128,8 +127,7 @@
               "RelativeToolTip": "WebApplication1\\appsettings.json",
               "ViewState": "AgIAAA0AAAAAAAAAAAAYwCkAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2025-06-19T23:30:09.978Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-19T23:30:09.978Z"
             },
             {
               "$type": "Document",
@@ -141,8 +139,7 @@
               "RelativeToolTip": "WebApplication1\\Controllers\\PagoController.cs",
               "ViewState": "AgIAAOwAAAAAAAAAAAAAAPYAAAAwAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-19T22:25:02.893Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-19T22:25:02.893Z"
             },
             {
               "$type": "Document",
@@ -178,8 +175,7 @@
               "RelativeToolTip": "WebApplication1\\Controllers\\GrupoController.cs",
               "ViewState": "AgIAAAQAAAAAAAAAAAAqwBEAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-18T01:06:08.88Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-18T01:06:08.88Z"
             },
             {
               "$type": "Document",
@@ -215,8 +211,7 @@
               "RelativeToolTip": "WebApplication1\\Program.cs",
               "ViewState": "AgIAAAwAAAAAAAAAAAAgwCcAAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-17T21:45:58.895Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-06-17T21:45:58.895Z"
             },
             {
               "$type": "Document",

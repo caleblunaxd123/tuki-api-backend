@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /app
+
+# Copy csproj and restore dependencies
+COPY WebApplication1/*.csproj ./WebApplication1/
+RUN dotnet restore WebApplication1/WebApplication1.csproj
+
+# Copy everything else and build
+COPY . .
+RUN dotnet publish WebApplication1/WebApplication1.csproj -c Release -o out
+
+# Runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app/out .
+
+EXPOSE 80
+ENV ASPNETCORE_URLS=http://+:80
+
+ENTRYPOINT ["dotnet", "WebApplication1.dll"]
