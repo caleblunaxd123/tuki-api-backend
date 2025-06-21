@@ -953,6 +953,22 @@
           }
         }
       },
+      "Npgsql/9.0.3": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "8.0.2"
+        },
+        "compile": {
+          "lib/net8.0/Npgsql.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/Npgsql.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Swashbuckle.AspNetCore/6.6.2": {
         "type": "package",
         "dependencies": {
@@ -2630,6 +2646,23 @@
         "packageIcon.png"
       ]
     },
+    "Npgsql/9.0.3": {
+      "sha512": "tPvY61CxOAWxNsKLEBg+oR646X4Bc8UmyQ/tJszL/7mEmIXQnnBhVJZrZEEUv0Bstu0mEsHZD5At3EO8zQRAYw==",
+      "type": "package",
+      "path": "npgsql/9.0.3",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "lib/net6.0/Npgsql.dll",
+        "lib/net6.0/Npgsql.xml",
+        "lib/net8.0/Npgsql.dll",
+        "lib/net8.0/Npgsql.xml",
+        "npgsql.9.0.3.nupkg.sha512",
+        "npgsql.nuspec",
+        "postgresql.png"
+      ]
+    },
     "Swashbuckle.AspNetCore/6.6.2": {
       "sha512": "+NB4UYVYN6AhDSjW0IJAd1AGD8V33gemFNLPaxKTtPkHB+HaKAKf9MGAEUPivEWvqeQfcKIw8lJaHq6LHljRuw==",
       "type": "package",
@@ -3311,6 +3344,7 @@
       "Microsoft.AspNetCore.SignalR >= 1.2.0",
       "Microsoft.Data.SqlClient >= 6.0.2",
       "Newtonsoft.Json >= 13.0.3",
+      "Npgsql >= 9.0.3",
       "Swashbuckle.AspNetCore >= 6.6.2",
       "mercadopago-sdk >= 2.5.0"
     ]
@@ -3377,6 +3411,10 @@
           "Newtonsoft.Json": {
             "target": "Package",
             "version": "[13.0.3, )"
+          },
+          "Npgsql": {
+            "target": "Package",
+            "version": "[9.0.3, )"
           },
           "Swashbuckle.AspNetCore": {
             "target": "Package",
