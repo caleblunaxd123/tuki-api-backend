@@ -18,7 +18,6 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 
 // CORS - DEBE IR ANTES DE Build()
-// CORS - DEBE IR ANTES DE Build()
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policy =>
@@ -64,16 +63,13 @@ var app = builder.Build();
 // CORS debe ir PRIMERO
 app.UseCors("CorsPolicy");
 
-// Swagger solo en desarrollo
-if (app.Environment.IsDevelopment())
+// Swagger habilitado tanto en desarrollo como en producción (temporalmente)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tuki API V1");
-        c.RoutePrefix = "swagger";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tuki API V1");
+    c.RoutePrefix = "swagger";
+});
 
 // Middleware de desarrollo adicional
 if (app.Environment.IsDevelopment())
@@ -101,28 +97,55 @@ app.MapHub<WebApplication1.Controllers.PagoHub>("/pagohub");
 // ================================
 // ENDPOINTS ADICIONALES PARA TESTING
 // ================================
+
+// Endpoint de salud (disponible en todos los ambientes)
+app.MapGet("/health", () => new {
+    Status = "OK",
+    Timestamp = DateTime.Now,
+    Environment = app.Environment.EnvironmentName,
+    Service = "Tuki API",
+    Version = "1.0.0"
+});
+
+// Endpoint raíz
+app.MapGet("/", () => new {
+    Message = "Tuki API está funcionando correctamente",
+    Status = "Online",
+    Environment = app.Environment.EnvironmentName,
+    Version = "1.0.0",
+    Endpoints = new
+    {
+        Health = "/health",
+        Swagger = "/swagger",
+        SignalRHub = "/pagohub",
+        ApiBase = "/api"
+    }
+});
+
+// Endpoint para probar CORS (disponible en todos los ambientes)
+app.MapGet("/test-cors", () => new {
+    Message = "CORS funcionando correctamente",
+    Environment = app.Environment.EnvironmentName,
+    CorsPolicy = "Configurado para permitir cualquier origen en producción"
+});
+
+// Endpoint para probar SignalR
+app.MapGet("/test-signalr", () => new {
+    SignalRHub = "/pagohub",
+    Message = "Hub disponible para conexiones",
+    Environment = app.Environment.EnvironmentName
+});
+
+// Endpoints adicionales solo en desarrollo
 if (app.Environment.IsDevelopment())
 {
-    // Endpoint de salud
-    app.MapGet("/health", () => new {
-        Status = "OK",
-        Timestamp = DateTime.Now,
-        Environment = app.Environment.EnvironmentName
-    });
-
-    // Endpoint para probar CORS
-    app.MapGet("/test-cors", () => new {
-        Message = "CORS funcionando correctamente",
-        AllowedOrigins = new[] {
-            "http://localhost:3000",
-            "http://192.168.18.18:3000"
-        }
-    });
-
-    // Endpoint para probar SignalR
-    app.MapGet("/test-signalr", () => new {
-        SignalRHub = "/pagohub",
-        Message = "Hub disponible para conexiones"
+    app.MapGet("/dev-info", () => new {
+        Environment = "Development",
+        LocalUrls = new[] {
+            "http://localhost:5220",
+            "http://192.168.18.18:5220"
+        },
+        SwaggerUrl = "http://localhost:5220/swagger"
     });
 }
 
@@ -135,11 +158,18 @@ app.Lifetime.ApplicationStarted.Register(() =>
     logger.LogInformation("🚀 Tuki API iniciada correctamente");
     logger.LogInformation("🔗 SignalR Hub disponible en: /pagohub");
     logger.LogInformation("📱 CORS configurado para React Native");
+    logger.LogInformation("🌐 Environment: {Environment}", app.Environment.EnvironmentName);
 
     if (app.Environment.IsDevelopment())
     {
         logger.LogInformation("📊 Swagger UI: http://localhost:5220/swagger");
         logger.LogInformation("🩺 Health Check: http://localhost:5220/health");
+    }
+    else
+    {
+        logger.LogInformation("📊 Swagger UI disponible en: /swagger");
+        logger.LogInformation("🩺 Health Check disponible en: /health");
+        logger.LogInformation("🔧 Endpoints de prueba disponibles en: /test-cors, /test-signalr");
     }
 });
 

@@ -85,3 +85,5 @@ C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.
 C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.0\Microsoft.Extensions.ObjectPool.dll
 C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.0\Newtonsoft.Json.dll
 C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.0\System.Net.WebSockets.WebSocketProtocol.dll
+C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.0\appsettings.Production.json
+C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\obj\Debug\net8.0\WebApplication1.sourcelink.json
