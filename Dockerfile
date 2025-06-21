@@ -14,7 +14,8 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/out .
 
-EXPOSE 80
-ENV ASPNETCORE_URLS=http://+:80
+# Configure for Render - USE PORT VARIABLE
+ENV ASPNETCORE_URLS=http://0.0.0.0:$PORT
+ENV ASPNETCORE_ENVIRONMENT=Production
 
 ENTRYPOINT ["dotnet", "WebApplication1.dll"]

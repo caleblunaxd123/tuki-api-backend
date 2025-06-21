@@ -3,20 +3,20 @@
   "WorkspaceRootPath": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\appsettings.production.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|solutionrelative:webapplication1\\appsettings.production.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+      "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|solutionrelative:webapplication1\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\webapplication1.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
-      "RelativeMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|solutionrelative:webapplication1\\webapplication1.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+      "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\appsettings.production.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|solutionrelative:webapplication1\\appsettings.production.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
       "RelativeMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|solutionrelative:webapplication1\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|solutionrelative:webapplication1\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\webapplication1.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|solutionrelative:webapplication1\\webapplication1.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     },
     {
       "AbsoluteMoniker": "D:0:0:{70305D18-3FF4-4FBF-872B-A1C350AD6C8A}|WebApplication1\\WebApplication1.csproj|c:\\users\\caleb\\documents\\tukibackend\\tukibackend\\webapplication1\\controllers\\grupocontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -66,32 +66,20 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 8,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "appsettings.Production.json",
               "DocumentMoniker": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\appsettings.Production.json",
               "RelativeDocumentMoniker": "WebApplication1\\appsettings.Production.json",
               "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\appsettings.Production.json",
               "RelativeToolTip": "WebApplication1\\appsettings.Production.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAcAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2025-06-21T16:21:18.895Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "WebApplication1.csproj",
-              "DocumentMoniker": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\WebApplication1.csproj",
-              "RelativeDocumentMoniker": "WebApplication1\\WebApplication1.csproj",
-              "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\WebApplication1.csproj",
-              "RelativeToolTip": "WebApplication1\\WebApplication1.csproj",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAABPAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2025-06-21T16:20:24.466Z"
             },
             {
               "$type": "Document",
@@ -125,9 +113,10 @@
               "RelativeDocumentMoniker": "WebApplication1\\appsettings.json",
               "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\appsettings.json",
               "RelativeToolTip": "WebApplication1\\appsettings.json",
-              "ViewState": "AgIAAA0AAAAAAAAAAAAYwCkAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAMAAAAAAAAAAAAAABsAAAAfAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2025-06-19T23:30:09.978Z"
+              "WhenOpened": "2025-06-19T23:30:09.978Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -139,7 +128,8 @@
               "RelativeToolTip": "WebApplication1\\Controllers\\PagoController.cs",
               "ViewState": "AgIAAOwAAAAAAAAAAAAAAPYAAAAwAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-19T22:25:02.893Z"
+              "WhenOpened": "2025-06-19T22:25:02.893Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -175,7 +165,33 @@
               "RelativeToolTip": "WebApplication1\\Controllers\\GrupoController.cs",
               "ViewState": "AgIAAAQAAAAAAAAAAAAqwBEAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-18T01:06:08.88Z"
+              "WhenOpened": "2025-06-18T01:06:08.88Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\Program.cs",
+              "RelativeDocumentMoniker": "WebApplication1\\Program.cs",
+              "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\Program.cs",
+              "RelativeToolTip": "WebApplication1\\Program.cs",
+              "ViewState": "AgIAAJIAAAAAAAAAAAAYwK8AAAAKAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-06-17T21:45:58.895Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "WebApplication1.csproj",
+              "DocumentMoniker": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\WebApplication1.csproj",
+              "RelativeDocumentMoniker": "WebApplication1\\WebApplication1.csproj",
+              "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\WebApplication1.csproj",
+              "RelativeToolTip": "WebApplication1\\WebApplication1.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAABPAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2025-06-21T16:20:24.466Z"
             },
             {
               "$type": "Document",
@@ -200,18 +216,6 @@
               "ViewState": "AgIAABAAAAAAAAAAAAAgwBUAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-06-17T21:31:08.65Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "Program.cs",
-              "DocumentMoniker": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\Program.cs",
-              "RelativeDocumentMoniker": "WebApplication1\\Program.cs",
-              "ToolTip": "C:\\Users\\Caleb\\Documents\\TukiBackend\\TukiBackend\\WebApplication1\\Program.cs",
-              "RelativeToolTip": "WebApplication1\\Program.cs",
-              "ViewState": "AgIAAAwAAAAAAAAAAAAgwCcAAAAJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-06-17T21:45:58.895Z"
             },
             {
               "$type": "Document",
