@@ -1,7 +1,5 @@
 ﻿using Microsoft.Data.SqlClient;
-using Npgsql;
 using Microsoft.Extensions.Configuration;
-using System.Data;
 
 namespace WebApplication1.Data
 {
@@ -14,35 +12,23 @@ namespace WebApplication1.Data
             _configuration = configuration;
         }
 
-        public IDbConnection GetConnection()
+        // ✅ Devuelve SqlConnection específicamente para SQL Server
+        public SqlConnection GetConnection()
         {
             var connectionString = _configuration.GetConnectionString("DefaultConnection");
 
-            // Detectar si es PostgreSQL o SQL Server basado en la connection string
-            if (connectionString.StartsWith("postgresql://") || connectionString.Contains("postgres"))
+            if (string.IsNullOrEmpty(connectionString))
             {
-                // PostgreSQL para producción
-                return new NpgsqlConnection(connectionString);
+                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
             }
-            else
-            {
-                // SQL Server para desarrollo local
-                return new SqlConnection(connectionString);
-            }
+
+            // Solo SQL Server
+            return new SqlConnection(connectionString);
         }
 
         public string GetDatabaseType()
         {
-            var connectionString = _configuration.GetConnectionString("DefaultConnection");
-
-            if (connectionString.StartsWith("postgresql://") || connectionString.Contains("postgres"))
-            {
-                return "PostgreSQL";
-            }
-            else
-            {
-                return "SqlServer";
-            }
+            return "SqlServer";
         }
     }
 }

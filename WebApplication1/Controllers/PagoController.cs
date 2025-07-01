@@ -12,14 +12,24 @@ namespace WebApplication1.Controllers
     {
         private readonly IConfiguration _config;
         private readonly IHubContext<PagoHub> _hubContext;
-        private readonly string connectionString;
+        private readonly ILogger<PagoController> _logger;
 
-        public PagoController(IConfiguration config, IHubContext<PagoHub> hubContext)
+        public PagoController(IConfiguration config, IHubContext<PagoHub> hubContext, ILogger<PagoController> logger)
         {
             _config = config;
             _hubContext = hubContext;
-            connectionString = _config.GetConnectionString("DefaultConnection") ??
-                             "Server=(localdb)\\MSSQLLocalDB;Database=TukiDB;Trusted_Connection=True;";
+            _logger = logger;
+        }
+
+        // ✅ Método para obtener connection string de forma segura
+        private string GetConnectionString()
+        {
+            var connectionString = _config.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("Connection string 'DefaultConnection' not found");
+            }
+            return connectionString;
         }
 
         // ================================
@@ -30,42 +40,42 @@ namespace WebApplication1.Controllers
         {
             try
             {
-                Console.WriteLine($"📥 === INICIO CrearPreferenciaPago ===");
-                Console.WriteLine($"📥 GrupoId recibido: {request?.GrupoId}");
-                Console.WriteLine($"📥 UsuarioId recibido: {request?.UsuarioId}");
+                _logger.LogInformation($"📥 === INICIO CrearPreferenciaPago ===");
+                _logger.LogInformation($"📥 GrupoId recibido: {request?.GrupoId}");
+                _logger.LogInformation($"📥 UsuarioId recibido: {request?.UsuarioId}");
 
                 // Validación básica
                 if (request == null)
                 {
-                    Console.WriteLine($"❌ Request es null");
+                    _logger.LogWarning($"❌ Request es null");
                     return BadRequest(new { error = "Request no puede ser null" });
                 }
 
                 if (request.GrupoId <= 0)
                 {
-                    Console.WriteLine($"❌ GrupoId inválido: {request.GrupoId}");
+                    _logger.LogWarning($"❌ GrupoId inválido: {request.GrupoId}");
                     return BadRequest(new { error = $"GrupoId debe ser mayor a 0, recibido: {request.GrupoId}" });
                 }
 
                 if (request.UsuarioId <= 0)
                 {
-                    Console.WriteLine($"❌ UsuarioId inválido: {request.UsuarioId}");
+                    _logger.LogWarning($"❌ UsuarioId inválido: {request.UsuarioId}");
                     return BadRequest(new { error = $"UsuarioId debe ser mayor a 0, recibido: {request.UsuarioId}" });
                 }
 
-                Console.WriteLine($"✅ Validación básica pasada");
+                _logger.LogInformation($"✅ Validación básica pasada");
 
                 // 1. Validar que el usuario pertenece al grupo
-                Console.WriteLine($"🔍 Validando participante...");
+                _logger.LogInformation($"🔍 Validando participante...");
                 var participante = await ValidarParticipante(request.GrupoId, request.UsuarioId);
 
                 if (participante == null)
                 {
-                    Console.WriteLine($"❌ Participante no encontrado");
-                    Console.WriteLine($"🔍 Verificando si el grupo {request.GrupoId} existe...");
+                    _logger.LogWarning($"❌ Participante no encontrado");
+                    _logger.LogInformation($"🔍 Verificando si el grupo {request.GrupoId} existe...");
 
                     // Debug: verificar si el grupo existe
-                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    using (SqlConnection conn = new SqlConnection(GetConnectionString()))
                     {
                         conn.Open();
                         string checkGrupo = "SELECT COUNT(*) FROM GruposPago WHERE Id = @GrupoId";
@@ -73,7 +83,7 @@ namespace WebApplication1.Controllers
                         {
                             cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
                             int grupoCount = (int)cmd.ExecuteScalar();
-                            Console.WriteLine($"🔍 Grupos encontrados con ID {request.GrupoId}: {grupoCount}");
+                            _logger.LogInformation($"🔍 Grupos encontrados con ID {request.GrupoId}: {grupoCount}");
                         }
 
                         string checkUsuario = "SELECT COUNT(*) FROM Usuarios WHERE Id = @UsuarioId";
@@ -81,7 +91,7 @@ namespace WebApplication1.Controllers
                         {
                             cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
                             int usuarioCount = (int)cmd.ExecuteScalar();
-                            Console.WriteLine($"🔍 Usuarios encontrados con ID {request.UsuarioId}: {usuarioCount}");
+                            _logger.LogInformation($"🔍 Usuarios encontrados con ID {request.UsuarioId}: {usuarioCount}");
                         }
 
                         string checkParticipante = "SELECT COUNT(*) FROM ParticipantesGrupo WHERE GrupoId = @GrupoId AND UsuarioId = @UsuarioId";
@@ -90,7 +100,7 @@ namespace WebApplication1.Controllers
                             cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
                             cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
                             int participanteCount = (int)cmd.ExecuteScalar();
-                            Console.WriteLine($"🔍 Participantes encontrados: {participanteCount}");
+                            _logger.LogInformation($"🔍 Participantes encontrados: {participanteCount}");
                         }
                     }
 
@@ -103,15 +113,15 @@ namespace WebApplication1.Controllers
                     });
                 }
 
-                Console.WriteLine($"✅ Participante encontrado: {participante.NombreUsuario}");
+                _logger.LogInformation($"✅ Participante encontrado: {participante.NombreUsuario}");
 
                 if (participante.YaPago)
                 {
-                    Console.WriteLine($"❌ Usuario ya pagó");
+                    _logger.LogWarning($"❌ Usuario ya pagó");
                     return BadRequest(new { error = "Este usuario ya ha pagado" });
                 }
 
-                Console.WriteLine($"✅ Usuario no ha pagado, procediendo...");
+                _logger.LogInformation($"✅ Usuario no ha pagado, procediendo...");
 
                 // 2. Crear respuesta simulada de MercadoPago
                 var preferenceId = $"TUKI-{request.GrupoId}-{request.UsuarioId}-{DateTime.Now.Ticks}";
@@ -128,18 +138,18 @@ namespace WebApplication1.Controllers
                     Status = "created"
                 };
 
-                Console.WriteLine($"✅ === ÉXITO CrearPreferenciaPago ===");
-                Console.WriteLine($"✅ PreferenceId: {preferenceId}");
-                Console.WriteLine($"✅ Monto: {participante.MontoIndividual}");
+                _logger.LogInformation($"✅ === ÉXITO CrearPreferenciaPago ===");
+                _logger.LogInformation($"✅ PreferenceId: {preferenceId}");
+                _logger.LogInformation($"✅ Monto: {participante.MontoIndividual}");
 
                 return Ok(response);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ === ERROR CrearPreferenciaPago ===");
-                Console.WriteLine($"❌ Message: {ex.Message}");
-                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
-                Console.WriteLine($"❌ InnerException: {ex.InnerException?.Message}");
+                _logger.LogError($"❌ === ERROR CrearPreferenciaPago ===");
+                _logger.LogError($"❌ Message: {ex.Message}");
+                _logger.LogError($"❌ StackTrace: {ex.StackTrace}");
+                _logger.LogError($"❌ InnerException: {ex.InnerException?.Message}");
 
                 return BadRequest(new
                 {
@@ -158,7 +168,7 @@ namespace WebApplication1.Controllers
         {
             try
             {
-                Console.WriteLine($"🧪 Simulando pago exitoso: Grupo {request.GrupoId}, Usuario {request.UsuarioId}, Monto {request.Monto}");
+                _logger.LogInformation($"🧪 Simulando pago exitoso: Grupo {request.GrupoId}, Usuario {request.UsuarioId}, Monto {request.Monto}");
 
                 // Validar participante
                 var participante = await ValidarParticipante(request.GrupoId, request.UsuarioId);
@@ -168,7 +178,7 @@ namespace WebApplication1.Controllers
                 }
 
                 // Simular pago exitoso
-                using (SqlConnection conn = new SqlConnection(connectionString))
+                using (SqlConnection conn = new SqlConnection(GetConnectionString()))
                 {
                     conn.Open();
                     SqlTransaction transaction = conn.BeginTransaction();
@@ -219,7 +229,7 @@ namespace WebApplication1.Controllers
                                 Timestamp = DateTime.Now
                             });
 
-                        Console.WriteLine($"✅ Pago simulado procesado exitosamente");
+                        _logger.LogInformation($"✅ Pago simulado procesado exitosamente");
 
                         return Ok(new
                         {
@@ -238,7 +248,7 @@ namespace WebApplication1.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error simulando pago: {ex.Message}");
+                _logger.LogError($"❌ Error simulando pago: {ex.Message}");
                 return BadRequest(new { error = ex.Message });
             }
         }
@@ -250,14 +260,13 @@ namespace WebApplication1.Controllers
         {
             try
             {
-                Console.WriteLine($"🔍 === VALIDANDO PARTICIPANTE ===");
-                Console.WriteLine($"🔍 GrupoId: {grupoId}, UsuarioId: {usuarioId}");
-                Console.WriteLine($"🔍 ConnectionString: {connectionString.Substring(0, 50)}...");
+                _logger.LogInformation($"🔍 === VALIDANDO PARTICIPANTE ===");
+                _logger.LogInformation($"🔍 GrupoId: {grupoId}, UsuarioId: {usuarioId}");
 
-                using (SqlConnection conn = new SqlConnection(connectionString))
+                using (SqlConnection conn = new SqlConnection(GetConnectionString()))
                 {
                     conn.Open();
-                    Console.WriteLine($"✅ Conexión a BD abierta");
+                    _logger.LogInformation($"✅ Conexión a BD abierta");
 
                     string query = @"
                 SELECT 
@@ -270,14 +279,10 @@ namespace WebApplication1.Controllers
                 INNER JOIN GruposPago g ON g.Id = pg.GrupoId
                 WHERE pg.GrupoId = @GrupoId AND pg.UsuarioId = @UsuarioId";
 
-                    Console.WriteLine($"🔍 Query: {query}");
-
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@GrupoId", grupoId);
                         cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
-
-                        Console.WriteLine($"🔍 Ejecutando query...");
 
                         using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
                         {
@@ -291,17 +296,17 @@ namespace WebApplication1.Controllers
                                     NombreGrupo = reader["NombreGrupo"]?.ToString() ?? ""
                                 };
 
-                                Console.WriteLine($"✅ Participante encontrado:");
-                                Console.WriteLine($"✅ NombreUsuario: {participante.NombreUsuario}");
-                                Console.WriteLine($"✅ NombreGrupo: {participante.NombreGrupo}");
-                                Console.WriteLine($"✅ MontoIndividual: {participante.MontoIndividual}");
-                                Console.WriteLine($"✅ YaPago: {participante.YaPago}");
+                                _logger.LogInformation($"✅ Participante encontrado:");
+                                _logger.LogInformation($"✅ NombreUsuario: {participante.NombreUsuario}");
+                                _logger.LogInformation($"✅ NombreGrupo: {participante.NombreGrupo}");
+                                _logger.LogInformation($"✅ MontoIndividual: {participante.MontoIndividual}");
+                                _logger.LogInformation($"✅ YaPago: {participante.YaPago}");
 
                                 return participante;
                             }
                             else
                             {
-                                Console.WriteLine($"❌ No se encontró participante con GrupoId={grupoId}, UsuarioId={usuarioId}");
+                                _logger.LogWarning($"❌ No se encontró participante con GrupoId={grupoId}, UsuarioId={usuarioId}");
                             }
                         }
                     }
@@ -309,8 +314,8 @@ namespace WebApplication1.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error en ValidarParticipante: {ex.Message}");
-                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
+                _logger.LogError($"❌ Error en ValidarParticipante: {ex.Message}");
+                _logger.LogError($"❌ StackTrace: {ex.StackTrace}");
             }
             return null;
         }
@@ -321,12 +326,21 @@ namespace WebApplication1.Controllers
         [HttpGet("test")]
         public IActionResult TestEndpoint()
         {
-            return Ok(new
+            try
             {
-                message = "PagoController funcionando correctamente",
-                timestamp = DateTime.Now,
-                connectionString = connectionString.Contains("TukiDB") ? "BD Configurada ✅" : "BD NO configurada ❌"
-            });
+                var connectionString = GetConnectionString();
+                return Ok(new
+                {
+                    message = "PagoController funcionando correctamente",
+                    timestamp = DateTime.Now,
+                    connectionString = connectionString.Contains("TukiDB") ? "BD Configurada ✅" : "BD NO configurada ❌",
+                    isAzureSQL = connectionString.Contains("database.windows.net") ? "Azure SQL ✅" : "Local DB ❌"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         [HttpPost("test-request")]
@@ -342,24 +356,24 @@ namespace WebApplication1.Controllers
         }
 
         // ================================
-        // WEBHOOKS Y OTROS MÉTODOS (SIN CAMBIOS)
+        // WEBHOOKS Y OTROS MÉTODOS
         // ================================
         [HttpPost("webhook")]
         public async Task<IActionResult> WebhookMercadoPago([FromBody] object notification)
         {
             try
             {
-                Console.WriteLine($"📥 Webhook recibido: {JsonConvert.SerializeObject(notification)}");
+                _logger.LogInformation($"📥 Webhook recibido: {JsonConvert.SerializeObject(notification)}");
                 return Ok(new { message = "Webhook recibido correctamente" });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ Error en webhook: {ex.Message}");
+                _logger.LogError($"❌ Error en webhook: {ex.Message}");
                 return BadRequest(new { error = ex.Message });
             }
         }
 
-        // Métodos auxiliares existentes (sin cambios)...
+        // Métodos auxiliares existentes
         private async Task RegistrarPago(SqlConnection conn, SqlTransaction transaction, int grupoId, int usuarioId, dynamic paymentDetails)
         {
             string insertPago = @"
@@ -420,7 +434,7 @@ namespace WebApplication1.Controllers
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(connectionString))
+                using (SqlConnection conn = new SqlConnection(GetConnectionString()))
                 {
                     conn.Open();
 
@@ -496,13 +510,41 @@ namespace WebApplication1.Controllers
                         grupo = grupo,
                         usuario = usuario,
                         participante = participante,
-                        connectionString = connectionString.Substring(0, 50) + "..."
+                        connectionInfo = "Using Azure SQL Database"
                     });
                 }
             }
             catch (Exception ex)
             {
                 return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        // Clases auxiliares
+        public class CrearPagoRequest
+        {
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+        }
+
+        public class SimularPagoRequest
+        {
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+            public decimal Monto { get; set; }
+        }
+
+        // SignalR Hub
+        public class PagoHub : Hub
+        {
+            public async Task JoinGroup(string groupName)
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+            }
+
+            public async Task LeaveGroup(string groupName)
+            {
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
             }
         }
     }

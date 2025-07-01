@@ -728,7 +728,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringDateTimeString<>f__AnonymousType46"
+                  "$ref": "#/components/schemas/StringDateTimeStringStringString<>f__AnonymousType48"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": [
+          "WebApplication1"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringStringStringStringStringStringStringString<>f__AnonymousType50<>f__AnonymousType49"
                 }
               }
             }
@@ -747,7 +766,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringStringArray<>f__AnonymousType47"
+                  "$ref": "#/components/schemas/StringStringString<>f__AnonymousType51"
                 }
               }
             }
@@ -766,7 +785,26 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StringString<>f__AnonymousType48"
+                  "$ref": "#/components/schemas/StringStringString<>f__AnonymousType52"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/dev-info": {
+      "get": {
+        "tags": [
+          "WebApplication1"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StringStringArrayString<>f__AnonymousType53"
                 }
               }
             }
@@ -889,7 +927,7 @@
         },
         "additionalProperties": false
       },
-      "StringDateTimeString<>f__AnonymousType46": {
+      "StringDateTimeStringStringString<>f__AnonymousType48": {
         "type": "object",
         "properties": {
           "status": {
@@ -903,11 +941,58 @@
           "environment": {
             "type": "string",
             "nullable": true
+          },
+          "service": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "StringString<>f__AnonymousType48": {
+      "StringStringArrayString<>f__AnonymousType53": {
+        "type": "object",
+        "properties": {
+          "environment": {
+            "type": "string",
+            "nullable": true
+          },
+          "localUrls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "swaggerUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StringStringString<>f__AnonymousType51": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "environment": {
+            "type": "string",
+            "nullable": true
+          },
+          "corsPolicy": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StringStringString<>f__AnonymousType52": {
         "type": "object",
         "properties": {
           "signalRHub": {
@@ -917,23 +1002,57 @@
           "message": {
             "type": "string",
             "nullable": true
+          },
+          "environment": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "StringStringArray<>f__AnonymousType47": {
+      "StringStringStringString<>f__AnonymousType50": {
+        "type": "object",
+        "properties": {
+          "health": {
+            "type": "string",
+            "nullable": true
+          },
+          "swagger": {
+            "type": "string",
+            "nullable": true
+          },
+          "signalRHub": {
+            "type": "string",
+            "nullable": true
+          },
+          "apiBase": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StringStringStringStringStringStringStringString<>f__AnonymousType50<>f__AnonymousType49": {
         "type": "object",
         "properties": {
           "message": {
             "type": "string",
             "nullable": true
           },
-          "allowedOrigins": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
+          "status": {
+            "type": "string",
             "nullable": true
+          },
+          "environment": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "string",
+            "nullable": true
+          },
+          "endpoints": {
+            "$ref": "#/components/schemas/StringStringStringString<>f__AnonymousType50"
           }
         },
         "additionalProperties": false

@@ -10,16 +10,18 @@ namespace WebApplication1.Controllers
     public class GrupoController : ControllerBase
     {
         private readonly IConfiguration _config;
+        private readonly ILogger<GrupoController> _logger;
 
-        public GrupoController(IConfiguration config)
+        public GrupoController(IConfiguration config, ILogger<GrupoController> logger)
         {
             _config = config;
+            _logger = logger;
         }
-        private readonly string connectionString = "Server=(localdb)\\MSSQLLocalDB;Database=TukiDB;Trusted_Connection=True;";
+        
         [HttpPost("crear")]
         public IActionResult CrearGrupo([FromBody] CrearGrupoRequest request)
         {
-            using (SqlConnection conn = new SqlConnection(connectionString))
+            using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
             {
                 conn.Open();
                 SqlTransaction transaction = conn.BeginTransaction();

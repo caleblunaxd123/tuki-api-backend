@@ -87,3 +87,4 @@ C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.
 C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.0\System.Net.WebSockets.WebSocketProtocol.dll
 C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.0\appsettings.Production.json
 C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\obj\Debug\net8.0\WebApplication1.sourcelink.json
+C:\Users\Caleb\Documents\TukiBackend\TukiBackend\WebApplication1\bin\Debug\net8.0\Npgsql.dll
