@@ -17,7 +17,7 @@ namespace WebApplication1.Controllers
             _config = config;
             _logger = logger;
         }
-        
+
         [HttpPost("crear")]
         public IActionResult CrearGrupo([FromBody] CrearGrupoRequest request)
         {
@@ -122,8 +122,8 @@ namespace WebApplication1.Controllers
         [HttpGet("detalle/{id}")]
         public IActionResult ObtenerDetalleGrupo(int id)
         {
-            var response = new GrupoDetalleResponse();
-            var participantes = new List<ParticipantePagoDTO>();
+            var response = new DTOs.GrupoDetalleResponse();
+            var participantes = new List<DTOs.ParticipantePagoDTO>();
 
             using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
             {
@@ -186,7 +186,7 @@ namespace WebApplication1.Controllers
                     {
                         while (reader.Read())
                         {
-                            participantes.Add(new ParticipantePagoDTO
+                            participantes.Add(new DTOs.ParticipantePagoDTO
                             {
                                 UsuarioId = (int)reader["UsuarioId"],
                                 Nombre = reader["Nombre"].ToString(),
@@ -211,7 +211,6 @@ namespace WebApplication1.Controllers
 
             return Ok(response);
         }
-
 
         [HttpGet("mis-grupos/{usuarioId}")]
         public IActionResult ObtenerGruposPorUsuario(int usuarioId)
@@ -427,6 +426,7 @@ namespace WebApplication1.Controllers
                 return BadRequest(new { error = ex.Message });
             }
         }
+
         [HttpGet("verificar-creador/{grupoId}/usuario/{usuarioId}")]
         public IActionResult VerificarCreador(int grupoId, int usuarioId)
         {
@@ -555,7 +555,6 @@ namespace WebApplication1.Controllers
             return Ok(pagosPendientes);
         }
 
-      
         [HttpDelete("eliminar/{id}")]
         public async Task<IActionResult> EliminarGrupo(int id, [FromBody] EliminarGrupoRequest request)
         {
@@ -659,16 +658,6 @@ namespace WebApplication1.Controllers
                         if (estadisticas.totalPagos > 0)
                         {
                             Console.WriteLine($"⚠️ ADVERTENCIA: Eliminando grupo con {estadisticas.totalPagos} pagos realizados");
-
-                            // OPCIONAL: Bloquear eliminación si hay pagos
-                            // if (estadisticas.participantesPagaron > 0)
-                            // {
-                            //     transaction.Rollback();
-                            //     return BadRequest(new { 
-                            //         error = "No se puede eliminar un grupo donde ya se realizaron pagos",
-                            //         participantesPagaron = estadisticas.participantesPagaron
-                            //     });
-                            // }
                         }
 
                         // 5. Eliminar en orden correcto (por foreign keys)
@@ -758,7 +747,6 @@ namespace WebApplication1.Controllers
             }
         }
 
-
         [HttpGet("puede-eliminar/{id}")]
         [HttpGet("puede-eliminar/{grupoId}/usuario/{usuarioId}")]
         public IActionResult PuedeEliminarGrupo(int grupoId, int usuarioId)
@@ -795,6 +783,24 @@ namespace WebApplication1.Controllers
                                 int totalPagos = (int)reader["TotalPagos"];
                                 int participantesPagaron = (int)reader["ParticipantesPagaron"];
 
+                                var advertencias = new List<string>();
+
+                                // Agregar advertencias
+                                if (!esCreador)
+                                {
+                                    advertencias.Add("Solo el creador del grupo puede eliminarlo");
+                                }
+
+                                if (totalPagos > 0)
+                                {
+                                    advertencias.Add($"El grupo tiene {totalPagos} pagos realizados que se eliminarán");
+                                }
+
+                                if (participantesPagaron > 0)
+                                {
+                                    advertencias.Add($"{participantesPagaron} participantes ya realizaron pagos");
+                                }
+
                                 var resultado = new
                                 {
                                     grupoId = grupoId,
@@ -808,7 +814,7 @@ namespace WebApplication1.Controllers
                                     puedeEliminar = esCreador,
 
                                     // Advertencias
-                                    advertencias = new List<string>(),
+                                    advertencias = advertencias,
 
                                     // Estadísticas
                                     totalParticipantes = (int)reader["TotalParticipantes"],
@@ -816,22 +822,6 @@ namespace WebApplication1.Controllers
                                     participantesPagaron = participantesPagaron,
                                     totalMonto = (decimal)reader["TotalMonto"]
                                 };
-
-                                // Agregar advertencias
-                                if (!esCreador)
-                                {
-                                    resultado.advertencias.Add("Solo el creador del grupo puede eliminarlo");
-                                }
-
-                                if (totalPagos > 0)
-                                {
-                                    resultado.advertencias.Add($"El grupo tiene {totalPagos} pagos realizados que se eliminarán");
-                                }
-
-                                if (participantesPagaron > 0)
-                                {
-                                    resultado.advertencias.Add($"{participantesPagaron} participantes ya realizaron pagos");
-                                }
 
                                 return Ok(resultado);
                             }
@@ -964,6 +954,7 @@ namespace WebApplication1.Controllers
             // Implementar si necesitas auditoría de eliminaciones
             return Ok(new { message = "Eliminación registrada en auditoría" });
         }
+
         [HttpGet("auditoria-eliminaciones")]
         public IActionResult ObtenerAuditoriaEliminaciones()
         {
@@ -976,6 +967,7 @@ namespace WebApplication1.Controllers
             });
         }
 
+        // CLASES DE REQUEST
         public class CrearGrupoRequest
         {
             public string NombreGrupo { get; set; }
@@ -987,6 +979,11 @@ namespace WebApplication1.Controllers
             public string? Descripcion { get; set; }
             public bool DivisionManual { get; set; } = false;
             public List<decimal>? MontosIndividuales { get; set; }
+        }
+
+        public class EliminarGrupoRequest
+        {
+            public int UsuarioId { get; set; }
         }
     }
 }
