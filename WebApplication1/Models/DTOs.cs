@@ -117,7 +117,13 @@ namespace WebApplication1.Models
             [StringLength(20, ErrorMessage = "El género no puede exceder 20 caracteres")]
             public string? Genero { get; set; }
         }
-
+        public class FotoPerfilResponse
+        {
+            public int UsuarioId { get; set; }
+            public string? FotoBase64 { get; set; }
+            public DateTime? FechaActualizacion { get; set; }
+            public bool TieneFoto { get; set; }
+        }
         public class FotoPerfilRequest
         {
             [Required(ErrorMessage = "La foto es requerida")]

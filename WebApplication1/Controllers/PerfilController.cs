@@ -209,76 +209,199 @@ namespace WebApplication1.Controllers
 
         // =============================================
         // POST: api/perfil/{usuarioId}/foto
-        // Subir foto de perfil
+        // 🆕 NUEVO: Subir foto de perfil en base64
         // =============================================
         [HttpPost("{usuarioId}/foto")]
-        public IActionResult SubirFotoPerfil(int usuarioId, [FromBody] FotoPerfilRequest request)
+        public IActionResult SubirFotoPerfil(int usuarioId, [FromBody] DTOs.FotoPerfilRequest request)
         {
             try
             {
+                // 🆕 Validaciones específicas para foto de perfil
                 if (string.IsNullOrWhiteSpace(request.FotoBase64))
                 {
-                    return BadRequest(new { error = "La foto es requerida" });
+                    return BadRequest(ApiResponse<object>.ErrorResult(
+                    "La foto es requerida",
+                    "Debe proporcionar una imagen en formato base64"
+                ));
                 }
 
-                // Validar que sea una imagen válida en base64
+                // 🆕 Validar que sea una imagen base64 válida
                 if (!ValidacionesPeruanas.EsImagenBase64Valida(request.FotoBase64))
                 {
-                    return BadRequest(new { error = "Formato de imagen inválido" });
+                    return BadRequest(ApiResponse<object>.ErrorResult(
+                        "Formato de imagen inválido",
+                        "La imagen debe ser un base64 válido de máximo 5MB"
+                    ));
+                }
+
+                // 🆕 Limpiar el base64 usando la función existente
+                string fotoLimpia = LimpiarBase64(request.FotoBase64);
+
+                // 🆕 Validar tamaño de la imagen (opcional, máximo 5MB en base64)
+                if (fotoLimpia.Length > 7000000) // ~5MB en base64
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResult(
+                        "Imagen demasiado grande",
+                        "La imagen no puede exceder 5MB"
+                    ));
                 }
 
                 using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
                 {
                     conn.Open();
+                    SqlTransaction transaction = conn.BeginTransaction();
 
-                    // Verificar si el perfil existe
-                    bool perfilExiste = false;
-                    string checkPerfil = "SELECT COUNT(1) FROM PerfilesUsuario WHERE UsuarioId = @UsuarioId AND Activo = 1";
-                    using (SqlCommand cmd = new SqlCommand(checkPerfil, conn))
+                    try
                     {
-                        cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
-                        perfilExiste = (int)cmd.ExecuteScalar() > 0;
-                    }
-
-                    if (!perfilExiste)
-                    {
-                        // Crear perfil básico con la foto
-                        string insertPerfil = @"INSERT INTO PerfilesUsuario 
-                                               (UsuarioId, FotoPerfil, FechaCreacion, FechaActualizacion, Activo)
-                                               VALUES 
-                                               (@UsuarioId, @FotoPerfil, GETDATE(), GETDATE(), 1)";
-
-                        using (SqlCommand cmd = new SqlCommand(insertPerfil, conn))
+                        // 🆕 Verificar si el perfil existe
+                        bool perfilExiste = false;
+                        string checkPerfil = "SELECT COUNT(1) FROM PerfilesUsuario WHERE UsuarioId = @UsuarioId AND Activo = 1";
+                        using (SqlCommand cmd = new SqlCommand(checkPerfil, conn, transaction))
                         {
                             cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
-                            cmd.Parameters.AddWithValue("@FotoPerfil", request.FotoBase64);
-                            cmd.ExecuteNonQuery();
+                            perfilExiste = (int)cmd.ExecuteScalar() > 0;
                         }
-                    }
-                    else
-                    {
-                        // Actualizar foto existente
-                        string updateFoto = @"UPDATE PerfilesUsuario 
-                                             SET FotoPerfil = @FotoPerfil, FechaActualizacion = GETDATE() 
-                                             WHERE UsuarioId = @UsuarioId AND Activo = 1";
 
-                        using (SqlCommand cmd = new SqlCommand(updateFoto, conn))
+                        if (!perfilExiste)
                         {
-                            cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
-                            cmd.Parameters.AddWithValue("@FotoPerfil", request.FotoBase64);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
+                            // 🆕 Crear perfil básico con la foto
+                            string insertPerfil = @"INSERT INTO PerfilesUsuario 
+                                                   (UsuarioId, FotoPerfil, FechaCreacion, FechaActualizacion, Activo)
+                                                   VALUES 
+                                                   (@UsuarioId, @FotoPerfil, GETDATE(), GETDATE(), 1)";
 
-                    Console.WriteLine($"✅ Foto de perfil actualizada para usuario {usuarioId}");
-                    return Ok(new { message = "Foto de perfil actualizada correctamente" });
+                            using (SqlCommand cmd = new SqlCommand(insertPerfil, conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+                                cmd.Parameters.AddWithValue("@FotoPerfil", fotoLimpia);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            Console.WriteLine($"✅ Perfil creado con foto para usuario {usuarioId}");
+                        }
+                        else
+                        {
+                            // 🆕 Actualizar foto existente
+                            string updateFoto = @"UPDATE PerfilesUsuario 
+                                                 SET FotoPerfil = @FotoPerfil, 
+                                                     FechaActualizacion = GETDATE() 
+                                                 WHERE UsuarioId = @UsuarioId AND Activo = 1";
+
+                            using (SqlCommand cmd = new SqlCommand(updateFoto, conn, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+                                cmd.Parameters.AddWithValue("@FotoPerfil", fotoLimpia);
+                                cmd.ExecuteNonQuery();
+                            }
+
+                            Console.WriteLine($"✅ Foto actualizada para usuario {usuarioId}");
+                        }
+
+                        transaction.Commit();
+
+                        var response = new
+                        {
+                            message = "Foto de perfil actualizada correctamente",
+                            fotoBase64 = fotoLimpia,
+                            usuarioId = usuarioId,
+                            timestamp = DateTime.Now
+                        };
+
+                        return Ok(ApiResponse<object>.SuccessResult(
+                            response,
+                            "Foto de perfil actualizada correctamente"
+                        ));
+                    }
+                    catch
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error subiendo foto: {ex.Message}");
                 _logger.LogError(ex, "Error al subir foto de perfil del usuario {UsuarioId}", usuarioId);
-                return BadRequest(new { error = "Error interno del servidor", details = ex.Message });
+                return BadRequest(ApiResponse<object>.ErrorResult(
+                    "Error interno del servidor",
+                    ex.Message
+                ));
+            }
+        }
+
+        // =============================================
+        // GET: api/perfil/{usuarioId}/foto
+        // 🆕 NUEVO: Obtener foto de perfil
+        // =============================================
+        [HttpGet("{usuarioId}/foto")]
+        public IActionResult ObtenerFotoPerfil(int usuarioId)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+
+                    string query = @"SELECT FotoPerfil, FechaActualizacion 
+                                   FROM PerfilesUsuario 
+                                   WHERE UsuarioId = @UsuarioId AND Activo = 1 AND FotoPerfil IS NOT NULL";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var fotoBase64 = reader["FotoPerfil"].ToString();
+                                var fechaActualizacion = (DateTime)reader["FechaActualizacion"];
+
+                                Console.WriteLine($"✅ Foto obtenida para usuario {usuarioId}");
+
+                                var fotoResponse = new
+                                {
+                                    usuarioId = usuarioId,
+                                    fotoBase64 = fotoBase64,
+                                    fechaActualizacion = fechaActualizacion,
+                                    tieneFoto = true
+                                };
+
+                                return Ok(ApiResponse<object>.SuccessResult(
+                                    fotoResponse,
+                                    "Foto de perfil obtenida correctamente"
+                                ));
+                            }
+                            else
+                            {
+                                Console.WriteLine($"ℹ️ Usuario {usuarioId} no tiene foto de perfil");
+
+                                var noFotoResponse = new
+                                {
+                                    usuarioId = usuarioId,
+                                    fotoBase64 = (string?)null,
+                                    fechaActualizacion = (DateTime?)null,
+                                    tieneFoto = false
+                                };
+
+                                return Ok(ApiResponse<object>.SuccessResult(
+                                    noFotoResponse,
+                                    "Usuario sin foto de perfil"
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error obteniendo foto: {ex.Message}");
+                _logger.LogError(ex, "Error al obtener foto de perfil del usuario {UsuarioId}", usuarioId);
+                return BadRequest(ApiResponse<object>.ErrorResult(
+                    "Error interno del servidor",
+                    ex.Message
+                ));
             }
         }
 
@@ -307,11 +430,25 @@ namespace WebApplication1.Controllers
                         if (filasAfectadas > 0)
                         {
                             Console.WriteLine($"✅ Foto eliminada para usuario {usuarioId}");
-                            return Ok(new { message = "Foto eliminada correctamente" });
+
+                            var deleteResponse = new
+                            {
+                                message = "Foto eliminada correctamente",
+                                usuarioId = usuarioId,
+                                timestamp = DateTime.Now
+                            };
+
+                            return Ok(ApiResponse<object>.SuccessResult(
+                                deleteResponse,
+                                "Foto de perfil eliminada correctamente"
+                            ));
                         }
                         else
                         {
-                            return NotFound(new { error = "Perfil no encontrado" });
+                            return NotFound(ApiResponse<object>.ErrorResult(
+                                "Perfil no encontrado",
+                                "No se encontró perfil o ya no tiene foto"
+                            ));
                         }
                     }
                 }
@@ -320,7 +457,10 @@ namespace WebApplication1.Controllers
             {
                 Console.WriteLine($"❌ Error eliminando foto: {ex.Message}");
                 _logger.LogError(ex, "Error al eliminar foto de perfil del usuario {UsuarioId}", usuarioId);
-                return BadRequest(new { error = "Error interno del servidor", details = ex.Message });
+                return BadRequest(ApiResponse<object>.ErrorResult(
+                    "Error interno del servidor",
+                    ex.Message
+                ));
             }
         }
 
@@ -425,7 +565,25 @@ namespace WebApplication1.Controllers
         }
 
         // =============================================
-        // MÉTODOS PRIVADOS DE AYUDA
+        // 🆕 MÉTODOS PRIVADOS PARA MANEJO DE BASE64
+        // =============================================
+        private static string LimpiarBase64(string base64String)
+        {
+            if (string.IsNullOrWhiteSpace(base64String))
+                return string.Empty;
+
+            // Remover prefijo data:image si existe
+            if (base64String.Contains(","))
+            {
+                base64String = base64String.Split(',')[1];
+            }
+
+            // Remover espacios en blanco y saltos de línea
+            return base64String.Trim().Replace(" ", "").Replace("\n", "").Replace("\r", "");
+        }
+
+        // =============================================
+        // MÉTODOS PRIVADOS DE AYUDA (existentes)
         // =============================================
         private static bool EvaluarPerfilCompleto(PerfilCompletoResponse perfil)
         {
