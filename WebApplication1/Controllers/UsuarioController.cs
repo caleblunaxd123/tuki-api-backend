@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using WebApplication1.Data;
 using WebApplication1.Models;
+using static WebApplication1.Models.DTOs;
 
 namespace WebApplication1.Controllers
 {
@@ -49,7 +50,6 @@ namespace WebApplication1.Controllers
                     return BadRequest(new { message = "Teléfono y contraseña son requeridos" });
                 }
 
-                // ✅ USAR SqlConnectionFactory - ahora devuelve SqlConnection directamente
                 using (SqlConnection conn = _connectionFactory.GetConnection())
                 {
                     conn.Open();
@@ -103,11 +103,48 @@ namespace WebApplication1.Controllers
         {
             try
             {
-                Console.WriteLine($"📱 Configurando método de pago para usuario {request.UsuarioId}");
+                // ✅ Validación usando tu clase de validaciones existente
+                if (request == null)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResult("Datos requeridos"));
+                }
+
+                // ✅ Usar las validaciones que ya tienes definidas
+                var erroresValidacion = ValidacionesPeruanas.ValidarConfiguracionPago(request);
+                if (erroresValidacion.Any())
+                {
+                    Console.WriteLine($"❌ Errores de validación: {string.Join(", ", erroresValidacion)}");
+                    return BadRequest(ApiResponse<object>.ErrorResult("Datos inválidos", erroresValidacion));
+                }
+
+                // ✅ Necesitamos obtener el UsuarioId del contexto o agregarlo al request
+                // Por ahora, lo obtendremos del teléfono
+                int usuarioId = 0;
+                using (SqlConnection conn = _connectionFactory.GetConnection())
+                {
+                    conn.Open();
+
+                    // Buscar usuario por teléfono
+                    string getUserQuery = "SELECT Id FROM Usuarios WHERE Telefono = @Telefono";
+                    using (SqlCommand cmd = new SqlCommand(getUserQuery, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Telefono", ValidacionesPeruanas.LimpiarTelefono(request.NumeroTelefono));
+                        var result = cmd.ExecuteScalar();
+
+                        if (result == null)
+                        {
+                            return NotFound(ApiResponse<object>.ErrorResult("Usuario no encontrado con ese número de teléfono"));
+                        }
+
+                        usuarioId = Convert.ToInt32(result);
+                    }
+                }
+
+                Console.WriteLine($"📱 Configurando método de pago para usuario {usuarioId}");
                 Console.WriteLine($"📝 Método: {request.MetodoPago}");
                 Console.WriteLine($"👤 Titular: {request.NombreTitular}");
                 Console.WriteLine($"📞 Teléfono: {request.NumeroTelefono}");
-                Console.WriteLine($"🖼️ Tiene QR: {!string.IsNullOrEmpty(request.QrImageBase64)}");
+                Console.WriteLine($"🖼️ Tiene QR: {!string.IsNullOrEmpty(request.ImagenQR)}");
 
                 using (SqlConnection conn = _connectionFactory.GetConnection())
                 {
@@ -116,29 +153,13 @@ namespace WebApplication1.Controllers
 
                     try
                     {
-                        // Verificar si el usuario existe
-                        string checkUserQuery = "SELECT COUNT(*) FROM Usuarios WHERE Id = @UsuarioId";
-                        using (SqlCommand cmd = new SqlCommand(checkUserQuery, conn, transaction))
-                        {
-                            cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
-                            int userCount = (int)cmd.ExecuteScalar();
-
-                            if (userCount == 0)
-                            {
-                                transaction.Rollback();
-                                return NotFound(new { error = "Usuario no encontrado" });
-                            }
-                        }
-
                         // Verificar si ya tiene configuración de pago
-                        string checkPaymentQuery = @"
-                    SELECT COUNT(*) FROM MetodosPago 
-                    WHERE UsuarioId = @UsuarioId";
-
+                        string checkPaymentQuery = "SELECT COUNT(*) FROM MetodosPago WHERE UsuarioId = @UsuarioId";
                         bool tieneConfiguracion = false;
+
                         using (SqlCommand cmd = new SqlCommand(checkPaymentQuery, conn, transaction))
                         {
-                            cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+                            cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
                             tieneConfiguracion = (int)cmd.ExecuteScalar() > 0;
                         }
 
@@ -146,22 +167,21 @@ namespace WebApplication1.Controllers
                         {
                             // Actualizar configuración existente
                             string updateQuery = @"
-                        UPDATE MetodosPago 
-                        SET MetodoPago = @MetodoPago,
-                            NombreTitular = @NombreTitular,
-                            NumeroTelefono = @NumeroTelefono,
-                            QrImage = @QrImage,
-                            FechaActualizacion = GETDATE()
-                        WHERE UsuarioId = @UsuarioId";
+                                UPDATE MetodosPago 
+                                SET MetodoPago = @MetodoPago,
+                                    NombreTitular = @NombreTitular,
+                                    NumeroTelefono = @NumeroTelefono,
+                                    QrImage = @QrImage,
+                                    FechaActualizacion = GETDATE()
+                                WHERE UsuarioId = @UsuarioId";
 
                             using (SqlCommand cmd = new SqlCommand(updateQuery, conn, transaction))
                             {
-                                cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
-                                cmd.Parameters.AddWithValue("@MetodoPago", request.MetodoPago);
-                                cmd.Parameters.AddWithValue("@NombreTitular", request.NombreTitular);
-                                cmd.Parameters.AddWithValue("@NumeroTelefono", request.NumeroTelefono);
-                                cmd.Parameters.AddWithValue("@QrImage",
-                                    string.IsNullOrEmpty(request.QrImageBase64) ? (object)DBNull.Value : request.QrImageBase64);
+                                cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+                                cmd.Parameters.AddWithValue("@MetodoPago", request.MetodoPago.ToLower());
+                                cmd.Parameters.AddWithValue("@NombreTitular", request.NombreTitular.Trim());
+                                cmd.Parameters.AddWithValue("@NumeroTelefono", ValidacionesPeruanas.LimpiarTelefono(request.NumeroTelefono));
+                                cmd.Parameters.AddWithValue("@QrImage", request.ImagenQR);
 
                                 cmd.ExecuteNonQuery();
                             }
@@ -172,17 +192,16 @@ namespace WebApplication1.Controllers
                         {
                             // Crear nueva configuración
                             string insertQuery = @"
-                        INSERT INTO MetodosPago (UsuarioId, MetodoPago, NombreTitular, NumeroTelefono, QrImage, FechaCreacion)
-                        VALUES (@UsuarioId, @MetodoPago, @NombreTitular, @NumeroTelefono, @QrImage, GETDATE())";
+                                INSERT INTO MetodosPago (UsuarioId, MetodoPago, NombreTitular, NumeroTelefono, QrImage, FechaCreacion)
+                                VALUES (@UsuarioId, @MetodoPago, @NombreTitular, @NumeroTelefono, @QrImage, GETDATE())";
 
                             using (SqlCommand cmd = new SqlCommand(insertQuery, conn, transaction))
                             {
-                                cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
-                                cmd.Parameters.AddWithValue("@MetodoPago", request.MetodoPago);
-                                cmd.Parameters.AddWithValue("@NombreTitular", request.NombreTitular);
-                                cmd.Parameters.AddWithValue("@NumeroTelefono", request.NumeroTelefono);
-                                cmd.Parameters.AddWithValue("@QrImage",
-                                    string.IsNullOrEmpty(request.QrImageBase64) ? (object)DBNull.Value : request.QrImageBase64);
+                                cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+                                cmd.Parameters.AddWithValue("@MetodoPago", request.MetodoPago.ToLower());
+                                cmd.Parameters.AddWithValue("@NombreTitular", request.NombreTitular.Trim());
+                                cmd.Parameters.AddWithValue("@NumeroTelefono", ValidacionesPeruanas.LimpiarTelefono(request.NumeroTelefono));
+                                cmd.Parameters.AddWithValue("@QrImage", request.ImagenQR);
 
                                 cmd.ExecuteNonQuery();
                             }
@@ -192,15 +211,22 @@ namespace WebApplication1.Controllers
 
                         transaction.Commit();
 
-                        return Ok(new
+                        // ✅ Respuesta usando tu estructura de DTOs
+                        var response = new ConfiguracionPagoResponse
                         {
-                            message = tieneConfiguracion ? "Método de pago actualizado correctamente" : "Método de pago configurado correctamente",
-                            metodoPago = request.MetodoPago,
-                            nombreTitular = request.NombreTitular,
-                            numeroTelefono = request.NumeroTelefono,
-                            tieneQR = !string.IsNullOrEmpty(request.QrImageBase64),
-                            fechaConfiguracion = DateTime.Now
-                        });
+                            MetodoPago = request.MetodoPago,
+                            NombreTitular = request.NombreTitular,
+                            NumeroTelefono = ValidacionesPeruanas.FormatearTelefono(request.NumeroTelefono),
+                            FechaCreacion = DateTime.Now,
+                            FechaActualizacion = DateTime.Now,
+                            Activo = true
+                        };
+
+                        Console.WriteLine("✅ Configuración guardada exitosamente");
+                        return Ok(ApiResponse<ConfiguracionPagoResponse>.SuccessResult(
+                            response,
+                            tieneConfiguracion ? "Método de pago actualizado correctamente" : "Método de pago configurado correctamente"
+                        ));
                     }
                     catch (Exception ex)
                     {
@@ -213,11 +239,8 @@ namespace WebApplication1.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error configurando método de pago: {ex.Message}");
-                return BadRequest(new
-                {
-                    error = "Error interno del servidor",
-                    details = ex.Message
-                });
+                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
+                return BadRequest(ApiResponse<object>.ErrorResult("Error interno del servidor", ex.Message));
             }
         }
 
@@ -228,23 +251,29 @@ namespace WebApplication1.Controllers
             {
                 Console.WriteLine($"🔍 Obteniendo método de pago para usuario {usuarioId}");
 
+                if (usuarioId <= 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResult("ID de usuario inválido"));
+                }
+
                 using (SqlConnection conn = _connectionFactory.GetConnection())
                 {
                     conn.Open();
 
                     string query = @"
-                SELECT 
-                    mp.MetodoPago,
-                    mp.NombreTitular,
-                    mp.NumeroTelefono,
-                    mp.QrImage,
-                    mp.FechaCreacion,
-                    mp.FechaActualizacion,
-                    u.Nombre as NombreUsuario,
-                    u.Telefono as TelefonoUsuario
-                FROM MetodosPago mp
-                INNER JOIN Usuarios u ON mp.UsuarioId = u.Id
-                WHERE mp.UsuarioId = @UsuarioId";
+                        SELECT 
+                            mp.Id,
+                            mp.MetodoPago,
+                            mp.NombreTitular,
+                            mp.NumeroTelefono,
+                            mp.QrImage,
+                            mp.FechaCreacion,
+                            mp.FechaActualizacion,
+                            u.Nombre as NombreUsuario,
+                            u.Telefono as TelefonoUsuario
+                        FROM MetodosPago mp
+                        INNER JOIN Usuarios u ON mp.UsuarioId = u.Id
+                        WHERE mp.UsuarioId = @UsuarioId";
 
                     using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
@@ -254,30 +283,28 @@ namespace WebApplication1.Controllers
                         {
                             if (reader.Read())
                             {
-                                var metodoPago = new
+                                var metodoPago = new ConfiguracionPagoResponse
                                 {
-                                    metodoPago = reader["MetodoPago"].ToString(),
-                                    nombreTitular = reader["NombreTitular"].ToString(),
-                                    numeroTelefono = reader["NumeroTelefono"].ToString(),
-                                    qrImage = reader["QrImage"] == DBNull.Value ? null : reader["QrImage"].ToString(),
-                                    fechaCreacion = (DateTime)reader["FechaCreacion"],
-                                    fechaActualizacion = reader["FechaActualizacion"] as DateTime?,
-                                    nombreUsuario = reader["NombreUsuario"].ToString(),
-                                    telefonoUsuario = reader["TelefonoUsuario"].ToString(),
-                                    configurado = true
+                                    Id = Convert.ToInt32(reader["Id"]),
+                                    MetodoPago = reader["MetodoPago"].ToString(),
+                                    NombreTitular = reader["NombreTitular"].ToString(),
+                                    NumeroTelefono = ValidacionesPeruanas.FormatearTelefono(reader["NumeroTelefono"].ToString()),
+                                    ImagenQR = reader["QrImage"]?.ToString(),
+                                    FechaCreacion = (DateTime)reader["FechaCreacion"],
+                                    FechaActualizacion = reader["FechaActualizacion"] as DateTime? ?? (DateTime)reader["FechaCreacion"],
+                                    Activo = true
                                 };
 
-                                Console.WriteLine($"✅ Método de pago encontrado: {metodoPago.metodoPago}");
-                                return Ok(metodoPago);
+                                Console.WriteLine($"✅ Método de pago encontrado: {metodoPago.MetodoPago}");
+                                return Ok(ApiResponse<ConfiguracionPagoResponse>.SuccessResult(
+                                    metodoPago,
+                                    "Método de pago obtenido correctamente"
+                                ));
                             }
                             else
                             {
                                 Console.WriteLine($"ℹ️ Usuario {usuarioId} no tiene método de pago configurado");
-                                return NotFound(new
-                                {
-                                    message = "Usuario no tiene método de pago configurado",
-                                    configurado = false
-                                });
+                                return NotFound(ApiResponse<object>.ErrorResult("Usuario no tiene método de pago configurado"));
                             }
                         }
                     }
@@ -286,27 +313,71 @@ namespace WebApplication1.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error obteniendo método de pago: {ex.Message}");
-                return BadRequest(new
-                {
-                    error = "Error interno del servidor",
-                    details = ex.Message
-                });
+                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
+                return BadRequest(ApiResponse<object>.ErrorResult("Error interno del servidor", ex.Message));
             }
         }
 
-        // Clase para el request de configurar pago
-        public class ConfigurarPagoRequest
+        [HttpGet("qr/{usuarioId}")]
+        public IActionResult ObtenerQR(int usuarioId)
         {
-            public int UsuarioId { get; set; }
-            public string MetodoPago { get; set; }  // "yape" o "plin"
-            public string NombreTitular { get; set; }
-            public string NumeroTelefono { get; set; }
-            public string? QrImageBase64 { get; set; }
+            try
+            {
+                Console.WriteLine($"🔍 Obteniendo QR para usuario {usuarioId}");
+
+                if (usuarioId <= 0)
+                {
+                    return BadRequest(ApiResponse<object>.ErrorResult("ID de usuario inválido"));
+                }
+
+                using (SqlConnection conn = _connectionFactory.GetConnection())
+                {
+                    conn.Open();
+
+                    string query = @"
+                        SELECT MetodoPago, NombreTitular, QrImage
+                        FROM MetodosPago
+                        WHERE UsuarioId = @UsuarioId";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var qrResponse = new QRResponse
+                                {
+                                    MetodoPago = reader["MetodoPago"].ToString(),
+                                    NombreTitular = reader["NombreTitular"].ToString(),
+                                    ImagenQR = reader["QrImage"]?.ToString()
+                                };
+
+                                Console.WriteLine($"✅ QR encontrado para método: {qrResponse.MetodoPago}");
+                                return Ok(ApiResponse<QRResponse>.SuccessResult(qrResponse, "QR obtenido correctamente"));
+                            }
+                            else
+                            {
+                                Console.WriteLine($"ℹ️ Usuario {usuarioId} no tiene QR configurado");
+                                return NotFound(ApiResponse<object>.ErrorResult("Usuario no tiene QR configurado"));
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error obteniendo QR: {ex.Message}");
+                return BadRequest(ApiResponse<object>.ErrorResult("Error interno del servidor", ex.Message));
+            }
         }
+
+        // Clases para compatibilidad con el login existente
         public class LoginRequest
         {
-            public string Telefono { get; set; }
-            public string Contrasena { get; set; }
+            public string Telefono { get; set; } = string.Empty;
+            public string Contrasena { get; set; } = string.Empty;
         }
     }
 }
