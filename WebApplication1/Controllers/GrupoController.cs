@@ -119,21 +119,22 @@ namespace WebApplication1.Controllers
             }
         }
 
-        [HttpGet("detalle/{id}")]
+
+        [HttpGet("detalle/{id}")]    
         public IActionResult ObtenerDetalleGrupo(int id)
         {
             var response = new DTOs.GrupoDetalleResponse();
-            var participantes = new List<DTOs.ParticipantePagoDTO>();
+            var participantes = new List<DTOs.ParticipanteDTO>();
 
             using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
             {
                 conn.Open();
 
-                // 🆕 1. Obtener datos del grupo (con nuevos campos)
+                // 1. Obtener datos del grupo (sin cambios)
                 using (SqlCommand cmd = new SqlCommand(@"
-                    SELECT Id, NombreGrupo, TotalMonto, Categoria, FechaLimite, Descripcion, FechaCreacion, CreadorId
-                    FROM GruposPago
-                    WHERE Id = @Id", conn))
+            SELECT Id, NombreGrupo, TotalMonto, Categoria, FechaLimite, Descripcion, FechaCreacion, CreadorId
+            FROM GruposPago
+            WHERE Id = @Id", conn))
                 {
                     cmd.Parameters.AddWithValue("@Id", id);
                     using (SqlDataReader reader = cmd.ExecuteReader())
@@ -158,42 +159,55 @@ namespace WebApplication1.Controllers
 
                 // 2. Obtener total pagado (sin cambios)
                 using (SqlCommand cmd = new SqlCommand(@"
-                    SELECT ISNULL(SUM(MontoPagado), 0)
-                    FROM PagosGrupo
-                    WHERE GrupoId = @Id", conn))
+            SELECT ISNULL(SUM(MontoPagado), 0)
+            FROM PagosGrupo
+            WHERE GrupoId = @Id", conn))
                 {
                     cmd.Parameters.AddWithValue("@Id", id);
                     response.TotalPagado = (decimal)cmd.ExecuteScalar();
                 }
 
-                // 3. Obtener participantes y su pago (sin cambios)
+                // 3. 🆕 Obtener participantes CON información de comprobantes
                 using (SqlCommand cmd = new SqlCommand(@"
-                    SELECT 
-                        u.Id AS UsuarioId,
-                        u.Nombre,
-                        u.Telefono,
-                        pg.MontoIndividual,
-                        ISNULL(SUM(pg2.MontoPagado), 0) AS MontoPagado,
-                        pg.YaPago
-                    FROM ParticipantesGrupo pg
-                    INNER JOIN Usuarios u ON u.Id = pg.UsuarioId
-                    LEFT JOIN PagosGrupo pg2 ON pg2.UsuarioId = pg.UsuarioId AND pg2.GrupoId = pg.GrupoId
-                    WHERE pg.GrupoId = @Id
-                    GROUP BY u.Id, u.Nombre, u.Telefono, pg.MontoIndividual, pg.YaPago", conn))
+             SELECT 
+        u.Id AS UsuarioId,
+        u.Nombre,
+        u.Telefono,
+        pg.MontoIndividual,    
+        CASE 
+            WHEN pg.YaPago = 1 THEN pg.MontoIndividual 
+            ELSE 0 
+        END AS MontoPagado,
+        pg.YaPago,
+        pg.Comprobante,
+        pg.FechaPago,
+        pg.MetodoPagoUsado
+    FROM ParticipantesGrupo pg
+    INNER JOIN Usuarios u ON u.Id = pg.UsuarioId
+    WHERE pg.GrupoId = @Id
+            GROUP BY u.Id, u.Nombre, u.Telefono, pg.MontoIndividual, pg.YaPago, pg.Comprobante, pg.FechaPago, pg.MetodoPagoUsado", conn))
                 {
                     cmd.Parameters.AddWithValue("@Id", id);
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            participantes.Add(new DTOs.ParticipantePagoDTO
+                            participantes.Add(new DTOs.ParticipanteDTO
                             {
                                 UsuarioId = (int)reader["UsuarioId"],
                                 Nombre = reader["Nombre"].ToString(),
                                 Telefono = reader["Telefono"].ToString(),
                                 MontoIndividual = (decimal)reader["MontoIndividual"],
                                 MontoPagado = (decimal)reader["MontoPagado"],
-                                YaPago = (bool)reader["YaPago"]
+                                YaPago = (bool)reader["YaPago"],
+
+                                // 🆕 Información de comprobante
+                                TieneComprobante = !string.IsNullOrEmpty(reader["Comprobante"]?.ToString()),
+                                FechaPago = reader["FechaPago"] as DateTime?,
+                                MetodoPagoUsado = reader["MetodoPagoUsado"]?.ToString(),
+                                ComprobantePreview = !string.IsNullOrEmpty(reader["Comprobante"]?.ToString())
+                                    ? reader["Comprobante"].ToString().Substring(0, Math.Min(50, reader["Comprobante"].ToString().Length)) + "..."
+                                    : null
                             });
                         }
                     }
@@ -202,15 +216,281 @@ namespace WebApplication1.Controllers
 
             response.Participantes = participantes;
 
-            // 🆕 Agregar información de urgencia
+            // Agregar información de urgencia (sin cambios)
             response.DiasRestantes = response.FechaLimite.HasValue
                 ? (int?)(response.FechaLimite.Value - DateTime.Now).TotalDays
                 : null;
             response.EsUrgente = response.DiasRestantes.HasValue && response.DiasRestantes <= 3;
             response.EstaVencido = response.DiasRestantes.HasValue && response.DiasRestantes < 0;
 
+            // 🆕 Estadísticas de comprobantes
+            var totalParticipantes = participantes.Count;
+            var participantesConComprobante = participantes.Count(p => p.YaPago && p.TieneComprobante);
+            var participantesSinComprobante = participantes.Count(p => p.YaPago && !p.TieneComprobante);
+
+            response.EstadisticasComprobantes = new
+            {
+                TotalParticipantes = totalParticipantes,
+                ParticipantesPagaron = participantes.Count(p => p.YaPago),
+                ParticipantesConComprobante = participantesConComprobante,
+                ParticipantesSinComprobante = participantesSinComprobante,
+                PorcentajeConComprobante = totalParticipantes > 0
+                    ? Math.Round((decimal)participantesConComprobante / totalParticipantes * 100, 1)
+                    : 0
+            };
+
             return Ok(response);
         }
+
+        [HttpGet("comprobantes/{grupoId}")]
+        public IActionResult ObtenerComprobantesGrupo(int grupoId)
+        {
+            try
+            {
+                // Crear lista tipada en lugar de object
+                var comprobantes = new List<ComprobanteResumenInfo>();
+                string nombreGrupo = "";
+                string nombreCreador = "";
+                int creadorId = 0;
+
+                using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+
+                    string query = @"
+                SELECT 
+                    g.Id as GrupoId,
+                    g.NombreGrupo,
+                    g.CreadorId,
+                    u_creador.Nombre as NombreCreador,
+                    pg.UsuarioId,
+                    u.Nombre as NombreParticipante,
+                    u.Telefono,
+                    pg.MontoIndividual,
+                    pg.YaPago,
+                    pg.Comprobante,
+                    pg.FechaPago,
+                    pg.MetodoPagoUsado
+                FROM GruposPago g
+                INNER JOIN Usuarios u_creador ON g.CreadorId = u_creador.Id
+                INNER JOIN ParticipantesGrupo pg ON g.Id = pg.GrupoId
+                INNER JOIN Usuarios u ON pg.UsuarioId = u.Id
+                WHERE g.Id = @GrupoId AND pg.YaPago = 1
+                ORDER BY pg.FechaPago DESC";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@GrupoId", grupoId);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                // Obtener datos del grupo (solo la primera vez)
+                                if (string.IsNullOrEmpty(nombreGrupo))
+                                {
+                                    nombreGrupo = reader["NombreGrupo"]?.ToString() ?? "";
+                                    nombreCreador = reader["NombreCreador"]?.ToString() ?? "";
+                                    creadorId = (int)reader["CreadorId"];
+                                }
+
+                                // Crear objeto tipado para cada comprobante
+                                var tieneComprobante = !string.IsNullOrEmpty(reader["Comprobante"]?.ToString());
+
+                                comprobantes.Add(new ComprobanteResumenInfo
+                                {
+                                    UsuarioId = (int)reader["UsuarioId"],
+                                    NombreParticipante = reader["NombreParticipante"]?.ToString() ?? "",
+                                    Telefono = reader["Telefono"]?.ToString() ?? "",
+                                    MontoIndividual = (decimal)reader["MontoIndividual"],
+                                    FechaPago = reader["FechaPago"] as DateTime?,
+                                    MetodoPagoUsado = reader["MetodoPagoUsado"]?.ToString(),
+                                    TieneComprobante = tieneComprobante,
+                                    ComprobantePreview = tieneComprobante
+                                        ? reader["Comprobante"].ToString().Substring(0, Math.Min(100, reader["Comprobante"].ToString().Length)) + "..."
+                                        : null
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Ahora podemos usar las propiedades tipadas
+                var pagosConComprobante = comprobantes.Count(c => c.TieneComprobante);
+                var pagosSinComprobante = comprobantes.Count(c => !c.TieneComprobante);
+
+                return Ok(new
+                {
+                    grupoId = grupoId,
+                    nombreGrupo = nombreGrupo,
+                    creadorId = creadorId,
+                    nombreCreador = nombreCreador,
+                    totalPagos = comprobantes.Count,
+                    pagosConComprobante = pagosConComprobante,
+                    pagosSinComprobante = pagosSinComprobante,
+                    porcentajeConComprobante = comprobantes.Count > 0
+                        ? Math.Round((decimal)pagosConComprobante / comprobantes.Count * 100, 1)
+                        : 0,
+                    comprobantes = comprobantes.Select(c => new
+                    {
+                        usuarioId = c.UsuarioId,
+                        nombreParticipante = c.NombreParticipante,
+                        telefono = c.Telefono,
+                        montoIndividual = c.MontoIndividual,
+                        fechaPago = c.FechaPago,
+                        metodoPagoUsado = c.MetodoPagoUsado,
+                        tieneComprobante = c.TieneComprobante,
+                        comprobantePreview = c.ComprobantePreview
+                    }).ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error obteniendo comprobantes del grupo: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpPost("validar-comprobante")]
+        public IActionResult ValidarComprobante([FromBody] ValidarComprobanteRequest request)
+        {
+            try
+            {
+                // Validar que quien valida sea el creador del grupo
+                using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+
+                    // Verificar que el usuario validador sea el creador
+                    string checkCreador = @"
+                SELECT CreadorId 
+                FROM GruposPago 
+                WHERE Id = @GrupoId";
+
+                    int creadorId = 0;
+                    using (SqlCommand cmd = new SqlCommand(checkCreador, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
+                        var result = cmd.ExecuteScalar();
+                        if (result != null)
+                        {
+                            creadorId = (int)result;
+                        }
+                    }
+
+                    if (creadorId != request.ValidadoPor)
+                    {
+                        return StatusCode(403, new { error = "Solo el creador del grupo puede validar comprobantes" });
+                    }
+
+                    // Actualizar el estado de validación (agregar columna ComprobanteValidado si es necesario)
+                    string updateValidacion = @"
+                UPDATE ParticipantesGrupo 
+                SET ComprobanteValidado = @Validado,
+                    FechaValidacion = @FechaValidacion,
+                    ValidadoPor = @ValidadoPor,
+                    ComentarioValidacion = @Comentario
+                WHERE GrupoId = @GrupoId AND UsuarioId = @UsuarioId";
+
+                    using (SqlCommand cmd = new SqlCommand(updateValidacion, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Validado", request.Validado);
+                        cmd.Parameters.AddWithValue("@FechaValidacion", DateTime.Now);
+                        cmd.Parameters.AddWithValue("@ValidadoPor", request.ValidadoPor);
+                        cmd.Parameters.AddWithValue("@Comentario", request.Comentario ?? "");
+                        cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
+                        cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected > 0)
+                        {
+                            return Ok(new
+                            {
+                                message = request.Validado ? "Comprobante validado exitosamente" : "Comprobante rechazado",
+                                grupoId = request.GrupoId,
+                                usuarioId = request.UsuarioId,
+                                validado = request.Validado,
+                                fechaValidacion = DateTime.Now
+                            });
+                        }
+                        else
+                        {
+                            return NotFound(new { error = "Participante no encontrado o no ha pagado" });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error validando comprobante: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("comprobante/{grupoId}/{usuarioId}")]
+        public IActionResult ObtenerComprobanteCompleto(int grupoId, int usuarioId)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+
+                    string query = @"
+                SELECT 
+                    pg.Comprobante,
+                    pg.FechaPago,
+                    pg.MetodoPagoUsado,
+                    pg.MontoIndividual,
+                    u.Nombre as NombreUsuario,
+                    u.Telefono,
+                    g.NombreGrupo
+                FROM ParticipantesGrupo pg
+                INNER JOIN Usuarios u ON u.Id = pg.UsuarioId
+                INNER JOIN GruposPago g ON g.Id = pg.GrupoId
+                WHERE pg.GrupoId = @GrupoId AND pg.UsuarioId = @UsuarioId AND pg.YaPago = 1";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@GrupoId", grupoId);
+                        cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var tieneComprobante = !string.IsNullOrEmpty(reader["Comprobante"]?.ToString());
+
+                                return Ok(new
+                                {
+                                    grupoId = grupoId,
+                                    usuarioId = usuarioId,
+                                    nombreUsuario = reader["NombreUsuario"]?.ToString(),
+                                    telefono = reader["Telefono"]?.ToString(),
+                                    nombreGrupo = reader["NombreGrupo"]?.ToString(),
+                                    comprobante = tieneComprobante ? reader["Comprobante"]?.ToString() : null,
+                                    fechaPago = reader["FechaPago"] as DateTime?,
+                                    metodoPagoUsado = reader["MetodoPagoUsado"]?.ToString(),
+                                    montoIndividual = reader["MontoIndividual"] as decimal?,
+                                    tieneComprobante = tieneComprobante
+                                });
+                            }
+                            else
+                            {
+                                return NotFound(new { error = "Comprobante no encontrado o usuario no ha pagado" });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error obteniendo comprobante: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
 
         [HttpGet("mis-grupos/{usuarioId}")]
         public IActionResult ObtenerGruposPorUsuario(int usuarioId)
@@ -1133,6 +1413,61 @@ namespace WebApplication1.Controllers
         public class EliminarGrupoRequest
         {
             public int UsuarioId { get; set; }
+        }
+        public class ValidarComprobanteRequest
+        {
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+            public int ValidadoPor { get; set; }
+            public bool Validado { get; set; }
+            public string? Comentario { get; set; }
+        }
+
+        // 🆕 Response para operaciones de comprobantes
+        public class ComprobanteOperationResponse
+        {
+            public bool Success { get; set; }
+            public string Message { get; set; } = string.Empty;
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+            public DateTime Timestamp { get; set; } = DateTime.Now;
+            public object? Data { get; set; }
+        }
+
+        // 🆕 Estadísticas detalladas de grupo
+        public class EstadisticasGrupoDTO
+        {
+            public int GrupoId { get; set; }
+            public string NombreGrupo { get; set; } = string.Empty;
+            public decimal TotalMonto { get; set; }
+            public decimal TotalPagado { get; set; }
+            public decimal TotalPendiente { get; set; }
+            public int TotalParticipantes { get; set; }
+            public int ParticipantesPagaron { get; set; }
+            public int ParticipantesPendientes { get; set; }
+
+            // Estadísticas de comprobantes
+            public int PagosConComprobante { get; set; }
+            public int PagosSinComprobante { get; set; }
+            public int ComprobantesValidados { get; set; }
+            public int ComprobantesRechazados { get; set; }
+            public int ComprobantesPendientesValidacion { get; set; }
+
+            // Porcentajes
+            public decimal PorcentajePagado { get; set; }
+            public decimal PorcentajeConComprobante { get; set; }
+            public decimal PorcentajeValidados { get; set; }
+        }
+        public class ComprobanteResumenInfo
+        {
+            public int UsuarioId { get; set; }
+            public string NombreParticipante { get; set; } = string.Empty;
+            public string Telefono { get; set; } = string.Empty;
+            public decimal MontoIndividual { get; set; }
+            public DateTime? FechaPago { get; set; }
+            public string? MetodoPagoUsado { get; set; }
+            public bool TieneComprobante { get; set; }
+            public string? ComprobantePreview { get; set; }
         }
     }
 }

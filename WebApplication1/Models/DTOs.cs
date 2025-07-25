@@ -16,6 +16,84 @@ namespace WebApplication1.Models
             public int UsuarioId { get; set; }
         }
 
+        public class ParticipanteDTO
+        {
+            public int UsuarioId { get; set; }
+            public string Nombre { get; set; } = string.Empty;
+            public string Telefono { get; set; } = string.Empty;
+            public decimal MontoIndividual { get; set; }
+            public decimal MontoPagado { get; set; }
+            public bool YaPago { get; set; }
+
+            // 🆕 Campos para comprobantes
+            public bool TieneComprobante { get; set; }
+            public DateTime? FechaPago { get; set; }
+            public string? MetodoPagoUsado { get; set; }
+            public string? ComprobantePreview { get; set; }
+
+            // 🆕 Campos para validación
+            public bool? ComprobanteValidado { get; set; }
+            public DateTime? FechaValidacion { get; set; }
+            public string? ComentarioValidacion { get; set; }
+            public string EstadoValidacion =>
+                !TieneComprobante ? "Sin comprobante" :
+                ComprobanteValidado == null ? "Pendiente validación" :
+                ComprobanteValidado == true ? "Validado ✅" : "Rechazado ❌";
+        }
+
+        public class ParticipantePagoConComprobanteDTO
+        {
+            public int UsuarioId { get; set; }
+            public string Nombre { get; set; } = string.Empty;
+            public string Telefono { get; set; } = string.Empty;
+            public decimal MontoIndividual { get; set; }
+            public decimal MontoPagado { get; set; }
+            public bool YaPago { get; set; }
+
+            // 🆕 Información del comprobante
+            public bool TieneComprobante { get; set; }
+            public DateTime? FechaPago { get; set; }
+            public string? MetodoPagoUsado { get; set; }
+            public string? ComprobantePreview { get; set; } // Solo primeros caracteres para preview
+        }
+
+        // Clase para respuesta de comprobante completo
+        public class ComprobanteResponse
+        {
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+            public string NombreUsuario { get; set; } = string.Empty;
+            public string Comprobante { get; set; } = string.Empty; // Base64 completo
+            public DateTime? FechaPago { get; set; }
+            public string? MetodoPagoUsado { get; set; }
+            public decimal MontoIndividual { get; set; }
+            public bool TieneComprobante { get; set; }
+        }
+
+        // Clase para estadísticas de grupo con comprobantes
+        public class EstadisticasGrupoConComprobantes
+        {
+            public int TotalParticipantes { get; set; }
+            public int ParticipantesPagaron { get; set; }
+            public int ParticipantesConComprobante { get; set; }
+            public int ParticipantesSinComprobante { get; set; }
+            public decimal TotalMonto { get; set; }
+            public decimal TotalPagado { get; set; }
+            public decimal PorcentajePagado { get; set; }
+            public decimal PorcentajeConComprobante { get; set; }
+        }
+
+        // Enum para tipos de método de pago
+        public enum MetodoPago
+        {
+            Yape,
+            Plin,
+            MercadoPago,
+            Efectivo,
+            Transferencia,
+            Otro
+        }
+
         public class ParticipanteInfo
         {
             public bool YaPago { get; set; }
@@ -33,47 +111,79 @@ namespace WebApplication1.Models
             public List<ParticipanteDTO> Participantes { get; set; } = new();
         }
 
-        public class ParticipanteDTO
-        {
-            public int UsuarioId { get; set; }
-            public string Nombre { get; set; } = "";
-            public string Telefono { get; set; } = "";
-            public decimal MontoIndividual { get; set; }
-            public decimal MontoPagado { get; set; }
-            public bool YaPago { get; set; }
-        }
+
 
         // 🆕 DTO para respuesta de detalles del grupo con nuevos campos
         public class GrupoDetalleResponse
         {
             public int Id { get; set; }
-            public string NombreGrupo { get; set; } = "";
+            public string NombreGrupo { get; set; } = string.Empty;
             public decimal TotalMonto { get; set; }
             public decimal TotalPagado { get; set; }
-            public DateTime FechaCreacion { get; set; }
-            public int CreadorId { get; set; }
-
-            // 🆕 Nuevos campos
-            public string Categoria { get; set; } = "general";
+            public string Categoria { get; set; } = string.Empty;
             public DateTime? FechaLimite { get; set; }
             public string? Descripcion { get; set; }
+            public DateTime FechaCreacion { get; set; }
+            public int CreadorId { get; set; }
+            public List<ParticipanteDTO> Participantes { get; set; } = new();
+
+            // Campos de urgencia existentes
             public int? DiasRestantes { get; set; }
             public bool EsUrgente { get; set; }
             public bool EstaVencido { get; set; }
 
-            public List<ParticipantePagoDTO> Participantes { get; set; } = new();
+            // 🆕 Estadísticas de comprobantes
+            public object? EstadisticasComprobantes { get; set; }
         }
 
-        // 🆕 DTO mejorado para participantes con estado de pago
-        public class ParticipantePagoDTO
+        public class ComprobanteDetalleDTO
+        {
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+            public string NombreUsuario { get; set; } = string.Empty;
+            public string Telefono { get; set; } = string.Empty;
+            public string NombreGrupo { get; set; } = string.Empty;
+            public string? Comprobante { get; set; } // Base64 completo
+            public DateTime? FechaPago { get; set; }
+            public string? MetodoPagoUsado { get; set; }
+            public decimal MontoIndividual { get; set; }
+            public bool TieneComprobante { get; set; }
+
+            // Información de validación
+            public bool? ComprobanteValidado { get; set; }
+            public DateTime? FechaValidacion { get; set; }
+            public string? ComentarioValidacion { get; set; }
+            public string? ValidadoPor { get; set; }
+        }
+
+        public class ResumenComprobantesDTO
+        {
+            public int GrupoId { get; set; }
+            public string NombreGrupo { get; set; } = string.Empty;
+            public int CreadorId { get; set; }
+            public string NombreCreador { get; set; } = string.Empty;
+            public int TotalPagos { get; set; }
+            public int PagosConComprobante { get; set; }
+            public int PagosSinComprobante { get; set; }
+            public int ComprobantesValidados { get; set; }
+            public int ComprobantesRechazados { get; set; }
+            public int ComprobantesPendientes { get; set; }
+            public List<ComprobanteResumenDTO> Comprobantes { get; set; } = new();
+        }
+
+        public class ComprobanteResumenDTO
         {
             public int UsuarioId { get; set; }
-            public string Nombre { get; set; } = "";
-            public string Telefono { get; set; } = "";
+            public string NombreParticipante { get; set; } = string.Empty;
+            public string Telefono { get; set; } = string.Empty;
             public decimal MontoIndividual { get; set; }
-            public decimal MontoPagado { get; set; }
-            public bool YaPago { get; set; }
+            public DateTime? FechaPago { get; set; }
+            public string? MetodoPagoUsado { get; set; }
+            public bool TieneComprobante { get; set; }
+            public string? ComprobantePreview { get; set; }
+            public string EstadoValidacion { get; set; } = string.Empty;
         }
+
 
         public class SimularPagoRequest
         {

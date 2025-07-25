@@ -429,6 +429,386 @@ namespace WebApplication1.Controllers
             return new GrupoCompleto();
         }
 
+        [HttpPost("marcar-pagado-con-comprobante")]
+        public async Task<IActionResult> MarcarPagadoConComprobante([FromBody] MarcarPagoConComprobanteRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"📸 Marcando pago con comprobante: Grupo {request.GrupoId}, Usuario {request.UsuarioId}");
+
+                // Validación básica
+                if (request == null)
+                {
+                    return BadRequest(new { error = "Request no puede ser null" });
+                }
+
+                if (request.GrupoId <= 0 || request.UsuarioId <= 0)
+                {
+                    return BadRequest(new { error = "GrupoId y UsuarioId deben ser mayor a 0" });
+                }
+
+                if (string.IsNullOrEmpty(request.Comprobante))
+                {
+                    return BadRequest(new { error = "Comprobante es requerido" });
+                }
+
+                // Validar que el usuario pertenece al grupo
+                var participante = await ValidarParticipante(request.GrupoId, request.UsuarioId);
+                if (participante == null)
+                {
+                    return BadRequest(new { error = "Usuario no encontrado en este grupo" });
+                }
+
+                if (participante.YaPago)
+                {
+                    return BadRequest(new { error = "Este usuario ya ha pagado" });
+                }
+
+                using (SqlConnection conn = new SqlConnection(GetConnectionString()))
+                {
+                    conn.Open();
+                    SqlTransaction transaction = conn.BeginTransaction();
+
+                    try
+                    {
+                        // 1. Actualizar ParticipantesGrupo con comprobante
+                        string updateParticipante = @"
+                    UPDATE ParticipantesGrupo 
+                    SET YaPago = 1,
+                        Comprobante = @Comprobante,
+                        FechaPago = @FechaPago,
+                        MetodoPagoUsado = @MetodoPago
+                    WHERE GrupoId = @GrupoId AND UsuarioId = @UsuarioId";
+
+                        using (SqlCommand cmd = new SqlCommand(updateParticipante, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
+                            cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+                            cmd.Parameters.AddWithValue("@Comprobante", request.Comprobante);
+                            cmd.Parameters.AddWithValue("@FechaPago", request.FechaPago ?? DateTime.Now);
+                            cmd.Parameters.AddWithValue("@MetodoPago", request.MetodoPago ?? "yape");
+
+                            int rowsAffected = await cmd.ExecuteNonQueryAsync();
+                            if (rowsAffected == 0)
+                            {
+                                throw new Exception("No se pudo actualizar el participante");
+                            }
+                        }
+
+                        // 2. Registrar en PagosGrupo (historial)
+                        string insertPago = @"
+                    INSERT INTO PagosGrupo (GrupoId, UsuarioId, MontoPagado, FechaPago)
+                    VALUES (@GrupoId, @UsuarioId, @MontoPagado, @FechaPago)";
+
+                        using (SqlCommand cmd = new SqlCommand(insertPago, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
+                            cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+                            cmd.Parameters.AddWithValue("@MontoPagado", request.Monto);
+                            cmd.Parameters.AddWithValue("@FechaPago", request.FechaPago ?? DateTime.Now);
+
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+
+                        transaction.Commit();
+
+                        // 3. Notificar al creador del grupo via SignalR
+                        await NotificarPagoConComprobante(request.GrupoId, request.UsuarioId, participante, request.Comprobante);
+
+                        _logger.LogInformation($"✅ Pago con comprobante registrado exitosamente");
+
+                        return Ok(new
+                        {
+                            message = "Pago registrado con comprobante exitosamente",
+                            grupoId = request.GrupoId,
+                            usuarioId = request.UsuarioId,
+                            monto = request.Monto,
+                            fechaPago = request.FechaPago ?? DateTime.Now,
+                            tieneComprobante = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error marcando pago con comprobante: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        private async Task NotificarPagoConComprobante(int grupoId, int usuarioId, ParticipanteInfo participante, string comprobante)
+        {
+            try
+            {
+                await _hubContext.Clients.Group($"grupo_{grupoId}")
+                    .SendAsync("PagoRealizadoConComprobante", new
+                    {
+                        GrupoId = grupoId,
+                        UsuarioId = usuarioId,
+                        Monto = participante.MontoIndividual,
+                        Usuario = new
+                        {
+                            Nombre = participante.NombreUsuario,
+                            MontoIndividual = participante.MontoIndividual
+                        },
+                        TieneComprobante = true,
+                        ComprobantePreview = comprobante?.Substring(0, Math.Min(100, comprobante.Length)) + "...",
+                        Timestamp = DateTime.Now
+                    });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error enviando notificación con comprobante: {ex.Message}");
+            }
+        }
+
+        private async Task NotificarPagoSinComprobante(int grupoId, int usuarioId, ParticipanteInfo participante)
+        {
+            try
+            {
+                await _hubContext.Clients.Group($"grupo_{grupoId}")
+                    .SendAsync("PagoRealizadoSinComprobante", new
+                    {
+                        GrupoId = grupoId,
+                        UsuarioId = usuarioId,
+                        Monto = participante.MontoIndividual,
+                        Usuario = new
+                        {
+                            Nombre = participante.NombreUsuario,
+                            MontoIndividual = participante.MontoIndividual
+                        },
+                        TieneComprobante = false,
+                        Timestamp = DateTime.Now
+                    });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error enviando notificación sin comprobante: {ex.Message}");
+            }
+        }
+
+        [HttpPost("marcar-pagado-sin-comprobante")]
+        public async Task<IActionResult> MarcarPagadoSinComprobante([FromBody] MarcarPagoSinComprobanteRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"✅ Marcando pago sin comprobante: Grupo {request.GrupoId}, Usuario {request.UsuarioId}");
+
+                // Validaciones básicas
+                if (request == null || request.GrupoId <= 0 || request.UsuarioId <= 0)
+                {
+                    return BadRequest(new { error = "Datos inválidos" });
+                }
+
+                // Validar que el usuario pertenece al grupo
+                var participante = await ValidarParticipante(request.GrupoId, request.UsuarioId);
+                if (participante == null)
+                {
+                    return BadRequest(new { error = "Usuario no encontrado en este grupo" });
+                }
+
+                if (participante.YaPago)
+                {
+                    return BadRequest(new { error = "Este usuario ya ha pagado" });
+                }
+
+                using (SqlConnection conn = new SqlConnection(GetConnectionString()))
+                {
+                    conn.Open();
+                    SqlTransaction transaction = conn.BeginTransaction();
+
+                    try
+                    {
+                        // 1. Actualizar ParticipantesGrupo sin comprobante
+                        string updateParticipante = @"
+                    UPDATE ParticipantesGrupo 
+                    SET YaPago = 1,
+                        FechaPago = @FechaPago,
+                        MetodoPagoUsado = @MetodoPago
+                    WHERE GrupoId = @GrupoId AND UsuarioId = @UsuarioId";
+
+                        using (SqlCommand cmd = new SqlCommand(updateParticipante, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
+                            cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+                            cmd.Parameters.AddWithValue("@FechaPago", DateTime.Now);
+                            cmd.Parameters.AddWithValue("@MetodoPago", request.MetodoPago ?? "yape");
+
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+
+                        // 2. Registrar en PagosGrupo (historial)
+                        string insertPago = @"
+                    INSERT INTO PagosGrupo (GrupoId, UsuarioId, MontoPagado, FechaPago)
+                    VALUES (@GrupoId, @UsuarioId, @MontoPagado, @FechaPago)";
+
+                        using (SqlCommand cmd = new SqlCommand(insertPago, conn, transaction))
+                        {
+                            cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
+                            cmd.Parameters.AddWithValue("@UsuarioId", request.UsuarioId);
+                            cmd.Parameters.AddWithValue("@MontoPagado", participante.MontoIndividual);
+                            cmd.Parameters.AddWithValue("@FechaPago", DateTime.Now);
+
+                            await cmd.ExecuteNonQueryAsync();
+                        }
+
+                        transaction.Commit();
+
+                        // 3. Notificar sin comprobante
+                        await NotificarPagoSinComprobante(request.GrupoId, request.UsuarioId, participante);
+
+                        _logger.LogInformation($"✅ Pago sin comprobante registrado exitosamente");
+
+                        return Ok(new
+                        {
+                            message = "Pago registrado exitosamente",
+                            grupoId = request.GrupoId,
+                            usuarioId = request.UsuarioId,
+                            monto = participante.MontoIndividual,
+                            fechaPago = DateTime.Now,
+                            tieneComprobante = false
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error marcando pago sin comprobante: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("comprobante/{grupoId}/{usuarioId}")]
+        public async Task<IActionResult> ObtenerComprobante(int grupoId, int usuarioId)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(GetConnectionString()))
+                {
+                    conn.Open();
+
+                    string query = @"
+                SELECT 
+                    pg.Comprobante,
+                    pg.FechaPago,
+                    pg.MetodoPagoUsado,
+                    pg.MontoIndividual,
+                    u.Nombre as NombreUsuario
+                FROM ParticipantesGrupo pg
+                INNER JOIN Usuarios u ON u.Id = pg.UsuarioId
+                WHERE pg.GrupoId = @GrupoId AND pg.UsuarioId = @UsuarioId AND pg.YaPago = 1";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@GrupoId", grupoId);
+                        cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+
+                        using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (reader.Read())
+                            {
+                                var comprobante = new
+                                {
+                                    grupoId = grupoId,
+                                    usuarioId = usuarioId,
+                                    nombreUsuario = reader["NombreUsuario"]?.ToString(),
+                                    comprobante = reader["Comprobante"]?.ToString(),
+                                    fechaPago = reader["FechaPago"] as DateTime?,
+                                    metodoPagoUsado = reader["MetodoPagoUsado"]?.ToString(),
+                                    montoIndividual = reader["MontoIndividual"] as decimal?,
+                                    tieneComprobante = !string.IsNullOrEmpty(reader["Comprobante"]?.ToString())
+                                };
+
+                                return Ok(comprobante);
+                            }
+                            else
+                            {
+                                return NotFound(new { error = "Comprobante no encontrado o usuario no ha pagado" });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error obteniendo comprobante: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        [HttpGet("comprobantes-grupo/{grupoId}")]
+        public async Task<IActionResult> ObtenerComprobantesGrupo(int grupoId)
+        {
+            try
+            {
+                var comprobantes = new List<object>();
+
+                using (SqlConnection conn = new SqlConnection(GetConnectionString()))
+                {
+                    conn.Open();
+
+                    string query = @"
+                SELECT 
+                    pg.UsuarioId,
+                    pg.Comprobante,
+                    pg.FechaPago,
+                    pg.MetodoPagoUsado,
+                    pg.MontoIndividual,
+                    u.Nombre as NombreUsuario,
+                    u.Telefono
+                FROM ParticipantesGrupo pg
+                INNER JOIN Usuarios u ON u.Id = pg.UsuarioId
+                WHERE pg.GrupoId = @GrupoId AND pg.YaPago = 1
+                ORDER BY pg.FechaPago DESC";
+
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@GrupoId", grupoId);
+
+                        using (SqlDataReader reader = await cmd.ExecuteReaderAsync())
+                        {
+                            while (reader.Read())
+                            {
+                                comprobantes.Add(new
+                                {
+                                    usuarioId = reader["UsuarioId"],
+                                    nombreUsuario = reader["NombreUsuario"]?.ToString(),
+                                    telefono = reader["Telefono"]?.ToString(),
+                                    comprobante = reader["Comprobante"]?.ToString(),
+                                    fechaPago = reader["FechaPago"] as DateTime?,
+                                    metodoPagoUsado = reader["MetodoPagoUsado"]?.ToString(),
+                                    montoIndividual = reader["MontoIndividual"] as decimal?,
+                                    tieneComprobante = !string.IsNullOrEmpty(reader["Comprobante"]?.ToString())
+                                });
+                            }
+                        }
+                    }
+                }
+
+                return Ok(new
+                {
+                    grupoId = grupoId,
+                    totalComprobantes = comprobantes.Count,
+                    comprobantes = comprobantes
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Error obteniendo comprobantes del grupo: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
         [HttpGet("debug/grupo/{grupoId}/usuario/{usuarioId}")]
         public async Task<IActionResult> DebugParticipante(int grupoId, int usuarioId)
         {
@@ -520,6 +900,8 @@ namespace WebApplication1.Controllers
             }
         }
 
+
+
         // Clases auxiliares
         public class CrearPagoRequest
         {
@@ -532,6 +914,22 @@ namespace WebApplication1.Controllers
             public int GrupoId { get; set; }
             public int UsuarioId { get; set; }
             public decimal Monto { get; set; }
+        }
+        public class MarcarPagoConComprobanteRequest
+        {
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+            public string Comprobante { get; set; } = string.Empty; // Base64 de la imagen
+            public decimal Monto { get; set; }
+            public DateTime? FechaPago { get; set; }
+            public string? MetodoPago { get; set; } = "yape";
+        }
+
+        public class MarcarPagoSinComprobanteRequest
+        {
+            public int GrupoId { get; set; }
+            public int UsuarioId { get; set; }
+            public string? MetodoPago { get; set; } = "yape";
         }
 
         // SignalR Hub
