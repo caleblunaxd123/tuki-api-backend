@@ -389,13 +389,22 @@ namespace WebApplication1.Controllers
                 {
                     conn.Open();
 
-                    // Obtener datos básicos del usuario
-                    string queryUsuario = @"
-                SELECT Id, Nombre, Telefono, Correo
-                FROM Usuarios 
-                WHERE Id = @Id";
+                    // Query para obtener usuario + método de pago en una sola consulta
+                    string query = @"
+                SELECT 
+                    u.Id,
+                    u.Nombre,
+                    u.Telefono,
+                    u.Correo,
+                    mp.MetodoPago,
+                    mp.NombreTitular,
+                    mp.NumeroTelefono as TelefonoPago,
+                    mp.QrImage
+                FROM Usuarios u
+                LEFT JOIN MetodosPago mp ON u.Id = mp.UsuarioId
+                WHERE u.Id = @Id";
 
-                    using (SqlCommand cmd = new SqlCommand(queryUsuario, conn))
+                    using (SqlCommand cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@Id", id);
 
@@ -408,66 +417,18 @@ namespace WebApplication1.Controllers
                                     id = (int)reader["Id"],
                                     nombre = reader["Nombre"]?.ToString(),
                                     telefono = reader["Telefono"]?.ToString(),
-                                    email = reader["Correo"]?.ToString()
+                                    email = reader["Correo"]?.ToString(),
+                                    metodoPago = reader["MetodoPago"]?.ToString(),
+                                    nombreTitular = reader["NombreTitular"]?.ToString(),
+                                    telefonoPago = reader["TelefonoPago"]?.ToString(),
+                                    qrImage = reader["QrImage"]?.ToString() // ✅ Base64 directo desde BD
                                 };
+                                                               
 
-                                // Cerrar el reader antes de la siguiente consulta
-                                reader.Close();
-
-                                // Ahora obtener datos del método de pago
-                                string queryMetodoPago = @"
-                            SELECT MetodoPago, NombreTitular, NumeroTelefono, QrImage
-                            FROM MetodosPago 
-                            WHERE UsuarioId = @Id";
-
-                                using (SqlCommand cmdPago = new SqlCommand(queryMetodoPago, conn))
-                                {
-                                    cmdPago.Parameters.AddWithValue("@Id", id);
-
-                                    using (SqlDataReader readerPago = cmdPago.ExecuteReader())
-                                    {
-                                        if (readerPago.Read())
-                                        {
-                                            // Usuario CON método de pago configurado
-                                            var usuarioCompleto = new
-                                            {
-                                                id = usuario.id,
-                                                nombre = usuario.nombre,
-                                                telefono = usuario.telefono,
-                                                email = usuario.email,
-                                                metodoPago = readerPago["MetodoPago"]?.ToString(),
-                                                nombreTitular = readerPago["NombreTitular"]?.ToString(),
-                                                telefonoPago = readerPago["NumeroTelefono"]?.ToString(),
-                                                qrImage = readerPago["QrImage"]?.ToString()
-                                            };
-
-                                            Console.WriteLine($"✅ Usuario encontrado CON método de pago: {usuarioCompleto.nombre} ({usuarioCompleto.metodoPago})");
-                                            return Ok(usuarioCompleto);
-                                        }
-                                        else
-                                        {
-                                            // Usuario SIN método de pago configurado
-                                            var usuarioSinPago = new
-                                            {
-                                                id = usuario.id,
-                                                nombre = usuario.nombre,
-                                                telefono = usuario.telefono,
-                                                email = usuario.email,
-                                                metodoPago = (string?)null,
-                                                nombreTitular = (string?)null,
-                                                telefonoPago = (string?)null,
-                                                qrImage = (string?)null
-                                            };
-
-                                            Console.WriteLine($"✅ Usuario encontrado SIN método de pago: {usuarioSinPago.nombre}");
-                                            return Ok(usuarioSinPago);
-                                        }
-                                    }
-                                }
+                                return Ok(usuario);
                             }
                             else
-                            {
-                                Console.WriteLine($"❌ Usuario con ID {id} no encontrado en base de datos");
+                            {                               
                                 return NotFound(new
                                 {
                                     error = "Usuario no encontrado",
@@ -484,19 +445,16 @@ namespace WebApplication1.Controllers
                 return StatusCode(500, new
                 {
                     error = "Error de base de datos",
-                    details = sqlEx.Message,
-                    id = id
+                    details = sqlEx.Message
                 });
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error general obteniendo usuario {id}: {ex.Message}");
-                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
                 return StatusCode(500, new
                 {
                     error = "Error interno del servidor",
-                    details = ex.Message,
-                    id = id
+                    details = ex.Message
                 });
             }
         }
