@@ -611,12 +611,13 @@ namespace WebApplication1.Controllers
                         {
                             Console.WriteLine($"🚫 ACCESO DENEGADO: Usuario {request.UsuarioId} intentó eliminar grupo creado por {creadorId}");
                             transaction.Rollback();
-                            return Forbid(new
+                            return StatusCode(403, new
                             {
                                 error = "Solo el creador del grupo puede eliminarlo",
                                 grupoCreador = creadorId,
                                 usuarioSolicitante = request.UsuarioId
-                            }.ToString());
+                            });
+
                         }
 
                         Console.WriteLine($"✅ Validación de creador exitosa. Usuario {request.UsuarioId} puede eliminar grupo {id}");
@@ -965,6 +966,154 @@ namespace WebApplication1.Controllers
                 message = "Auditoría no implementada",
                 sugerencia = "Implementar tabla GruposEliminados para tracking"
             });
+        }
+        [HttpPost("enviar-recordatorio")]
+        public IActionResult RegistrarRecordatorioEnviado([FromBody] RegistrarRecordatorioRequest request)
+        {
+            try
+            {
+                Console.WriteLine($"📧 Registrando recordatorio enviado:");
+                Console.WriteLine($"   Grupo: {request.GrupoId}");
+                Console.WriteLine($"   Enviado por: {request.EnviadoPor}");
+                Console.WriteLine($"   Para: {request.UsuarioDestino}");
+                Console.WriteLine($"   Método: {request.MetodoEnvio}");
+
+                using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+
+                    // Verificar que el remitente sea el creador del grupo
+                    string verificarCreador = @"
+                SELECT CreadorId, NombreGrupo 
+                FROM GruposPago 
+                WHERE Id = @GrupoId";
+
+                    int creadorId = 0;
+                    string nombreGrupo = "";
+
+                    using (SqlCommand cmd = new SqlCommand(verificarCreador, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@GrupoId", request.GrupoId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                creadorId = (int)reader["CreadorId"];
+                                nombreGrupo = reader["NombreGrupo"].ToString();
+                            }
+                            else
+                            {
+                                return NotFound(new { error = "Grupo no encontrado" });
+                            }
+                        }
+                    }
+
+                    // ✅ CORRECCIÓN: Usar StatusCode en lugar de Forbid con objeto
+                    if (creadorId != request.EnviadoPor)
+                    {
+                        return StatusCode(403, new { error = "Solo el creador puede enviar recordatorios" });
+                    }
+
+                    // Opcional: Crear tabla de auditoría de notificaciones
+                    // Si tienes una tabla NotificacionesEnviadas, puedes registrar ahí
+
+                    // Por ahora solo retornamos confirmación
+                    var resultado = new
+                    {
+                        grupoId = request.GrupoId,
+                        nombreGrupo = nombreGrupo,
+                        enviadoPor = request.EnviadoPor,
+                        usuarioDestino = request.UsuarioDestino,
+                        metodoEnvio = request.MetodoEnvio,
+                        fechaEnvio = DateTime.Now,
+                        mensaje = "Recordatorio registrado exitosamente"
+                    };
+
+                    Console.WriteLine($"✅ Recordatorio registrado exitosamente");
+
+                    return Ok(resultado);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error registrando recordatorio: {ex.Message}");
+                return BadRequest(new { error = "Error interno del servidor", details = ex.Message });
+            }
+        }
+
+        [HttpGet("recordatorios-enviados/{grupoId}")]
+        public IActionResult ObtenerRecordatoriosEnviados(int grupoId, int usuarioId)
+        {
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
+                {
+                    conn.Open();
+
+                    // Verificar que el usuario sea el creador
+                    string verificarCreador = @"
+                SELECT CreadorId, NombreGrupo 
+                FROM GruposPago 
+                WHERE Id = @GrupoId";
+
+                    using (SqlCommand cmd = new SqlCommand(verificarCreador, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@GrupoId", grupoId);
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                int creadorId = (int)reader["CreadorId"];
+
+                                // ✅ CORRECCIÓN: Usar StatusCode en lugar de Forbid con objeto
+                                if (creadorId != usuarioId)
+                                {
+                                    return StatusCode(403, new { error = "Solo el creador puede ver los recordatorios enviados" });
+                                }
+                            }
+                            else
+                            {
+                                return NotFound(new { error = "Grupo no encontrado" });
+                            }
+                        }
+                    }
+
+                    // Por ahora retornar estructura mock
+                    // En una implementación real, consultar tabla NotificacionesEnviadas
+                    var recordatoriosMock = new[]
+                    {
+                new
+                {
+                    fechaEnvio = DateTime.Now.AddHours(-2),
+                    usuarioDestino = "Juan Pérez",
+                    metodoEnvio = "WhatsApp",
+                    estado = "Enviado"
+                }
+            };
+
+                    return Ok(new
+                    {
+                        grupoId = grupoId,
+                        totalRecordatorios = recordatoriosMock.Length,
+                        recordatorios = recordatoriosMock,
+                        mensaje = "Implementar tabla NotificacionesEnviadas para datos reales"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+        }
+
+        // Clase para la request
+        public class RegistrarRecordatorioRequest
+        {
+            public int GrupoId { get; set; }
+            public int EnviadoPor { get; set; }
+            public int UsuarioDestino { get; set; }
+            public string MetodoEnvio { get; set; } = ""; // "WhatsApp", "SMS", "Email", etc.
+            public string? Mensaje { get; set; }
         }
 
         // CLASES DE REQUEST

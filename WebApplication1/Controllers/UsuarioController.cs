@@ -373,6 +373,135 @@ namespace WebApplication1.Controllers
             }
         }
 
+        [HttpGet("{id}")]
+        public IActionResult ObtenerUsuario(int id)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 Obteniendo datos del usuario ID: {id}");
+
+                if (id <= 0)
+                {
+                    return BadRequest(new { error = "ID de usuario inválido" });
+                }
+
+                using (SqlConnection conn = _connectionFactory.GetConnection())
+                {
+                    conn.Open();
+
+                    // Obtener datos básicos del usuario
+                    string queryUsuario = @"
+                SELECT Id, Nombre, Telefono, Correo
+                FROM Usuarios 
+                WHERE Id = @Id";
+
+                    using (SqlCommand cmd = new SqlCommand(queryUsuario, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Id", id);
+
+                        using (SqlDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var usuario = new
+                                {
+                                    id = (int)reader["Id"],
+                                    nombre = reader["Nombre"]?.ToString(),
+                                    telefono = reader["Telefono"]?.ToString(),
+                                    email = reader["Correo"]?.ToString()
+                                };
+
+                                // Cerrar el reader antes de la siguiente consulta
+                                reader.Close();
+
+                                // Ahora obtener datos del método de pago
+                                string queryMetodoPago = @"
+                            SELECT MetodoPago, NombreTitular, NumeroTelefono, QrImage
+                            FROM MetodosPago 
+                            WHERE UsuarioId = @Id";
+
+                                using (SqlCommand cmdPago = new SqlCommand(queryMetodoPago, conn))
+                                {
+                                    cmdPago.Parameters.AddWithValue("@Id", id);
+
+                                    using (SqlDataReader readerPago = cmdPago.ExecuteReader())
+                                    {
+                                        if (readerPago.Read())
+                                        {
+                                            // Usuario CON método de pago configurado
+                                            var usuarioCompleto = new
+                                            {
+                                                id = usuario.id,
+                                                nombre = usuario.nombre,
+                                                telefono = usuario.telefono,
+                                                email = usuario.email,
+                                                metodoPago = readerPago["MetodoPago"]?.ToString(),
+                                                nombreTitular = readerPago["NombreTitular"]?.ToString(),
+                                                telefonoPago = readerPago["NumeroTelefono"]?.ToString(),
+                                                qrImage = readerPago["QrImage"]?.ToString()
+                                            };
+
+                                            Console.WriteLine($"✅ Usuario encontrado CON método de pago: {usuarioCompleto.nombre} ({usuarioCompleto.metodoPago})");
+                                            return Ok(usuarioCompleto);
+                                        }
+                                        else
+                                        {
+                                            // Usuario SIN método de pago configurado
+                                            var usuarioSinPago = new
+                                            {
+                                                id = usuario.id,
+                                                nombre = usuario.nombre,
+                                                telefono = usuario.telefono,
+                                                email = usuario.email,
+                                                metodoPago = (string?)null,
+                                                nombreTitular = (string?)null,
+                                                telefonoPago = (string?)null,
+                                                qrImage = (string?)null
+                                            };
+
+                                            Console.WriteLine($"✅ Usuario encontrado SIN método de pago: {usuarioSinPago.nombre}");
+                                            return Ok(usuarioSinPago);
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"❌ Usuario con ID {id} no encontrado en base de datos");
+                                return NotFound(new
+                                {
+                                    error = "Usuario no encontrado",
+                                    id = id
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (SqlException sqlEx)
+            {
+                Console.WriteLine($"❌ SQL Error obteniendo usuario {id}: {sqlEx.Message}");
+                return StatusCode(500, new
+                {
+                    error = "Error de base de datos",
+                    details = sqlEx.Message,
+                    id = id
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error general obteniendo usuario {id}: {ex.Message}");
+                Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
+                return StatusCode(500, new
+                {
+                    error = "Error interno del servidor",
+                    details = ex.Message,
+                    id = id
+                });
+            }
+        }
+
+
         // Clases para compatibilidad con el login existente
         public class LoginRequest
         {
