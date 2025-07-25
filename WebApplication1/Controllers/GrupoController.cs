@@ -185,7 +185,7 @@ namespace WebApplication1.Controllers
     FROM ParticipantesGrupo pg
     INNER JOIN Usuarios u ON u.Id = pg.UsuarioId
     WHERE pg.GrupoId = @Id
-            GROUP BY u.Id, u.Nombre, u.Telefono, pg.MontoIndividual, pg.YaPago, pg.Comprobante, pg.FechaPago, pg.MetodoPagoUsado", conn))
+            ORDER BY u.Nombre", conn))
                 {
                     cmd.Parameters.AddWithValue("@Id", id);
                     using (SqlDataReader reader = cmd.ExecuteReader())
